@@ -104,7 +104,7 @@ project for the standard notice.
 
 This is a third-party plugin and isn't affiliated with, endorsed by, or
 supported by Discord Inc. Use of client modifications is against Discord's
-Terms of Service  use at your own risk
+Terms of Service  use at your own risk.
 
 ## Community & Support
 
