@@ -34,7 +34,7 @@ Discord.
 ---
 
 <details>
-<summary><h2 style="display:inline-block; margin:0;">📦 Installation (click to expand)</h2></summary>
+<summary><h2 style="display:inline-block; margin:0;"><img src="https://files.catbox.moe/9d4gfc.png" width="40" height="40" align="absmiddle" /> Installation (click to expand)</h2></summary>
 Follow the steps below to install the plugin manually.
 
 ### 1. Clone the Vencord repo & pnpm install
