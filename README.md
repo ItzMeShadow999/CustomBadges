@@ -104,7 +104,19 @@ instance instead of using the default endpoint:
 2. `wrangler deploy`.
 3. Point the plugin at your worker by passing your own `apiBase` where
    `native.ts`'s functions are called.
+---
 
+## Badge Preview
+
+**1. Hover** — shows the badge tooltip
+
+<img src="https://files.catbox.moe/brmqre.png" width="500" />
+
+**2. Click** — opens the full badge popup card
+
+<img src="https://files.catbox.moe/unhdgj.png" width="500" />
+
+---
 ## License
 
 This plugin is built for and depends on [Vencord](https://github.com/Vendicated/Vencord),
