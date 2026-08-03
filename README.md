@@ -1,4 +1,19 @@
+<div align="center">
+
+<img src="https://vencord.dev/assets/logo.png" alt="Vencord logo" width="90" />
+
 # Custom Badges
+
+[![Vencord Plugin](https://img.shields.io/badge/Vencord-Plugin-FFB6D9?style=for-the-badge&logo=discord&logoColor=6B2C5F&labelColor=FFD6EC)](https://github.com/Vendicated/Vencord)
+[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-A9C9FF?style=for-the-badge&labelColor=D6E4FF&logoColor=2B3A67)](https://www.gnu.org/licenses/gpl-3.0.html)
+[![Cloudflare Workers](https://img.shields.io/badge/Backend-Cloudflare%20Workers-FFCBA4?style=for-the-badge&logo=cloudflare&logoColor=8A4B00&labelColor=FFE3C7)](https://workers.cloudflare.com/)
+[![Discord Server](https://img.shields.io/badge/Discord-Join%20Server-C9A7FF?style=for-the-badge&logo=discord&logoColor=4B2E83&labelColor=E5D4FF)](https://discord.gg/PUYaka9Hy8)
+
+![TypeScript](https://img.shields.io/badge/TypeScript-A7C7FF?style=flat&logo=typescript&logoColor=1B3A6B&labelColor=D6E8FF)
+![Third-Party](https://img.shields.io/badge/Third--Party-Not%20affiliated%20with%20Discord-E8E8E8?style=flat&labelColor=F5F5F5&color=D8D8D8)
+![Status](https://img.shields.io/badge/Status-Active-B8E6B8?style=flat&labelColor=E0F5E0&logoColor=1F5C1F)
+
+</div>
 
 A Vencord plugin that gives you a custom profile badge image, description,
 and styling with hover tooltips, a click popup, badge rotation ("My
