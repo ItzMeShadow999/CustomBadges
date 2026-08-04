@@ -21,6 +21,35 @@ const PACKS_REPO_URL = "https://github.com/ItzMeShadow999/Badges";
 const BADGE_EXPIRY_WARNING_DAYS = 14;
 let expiryWarningShownThisSession = false;
 
+function normalizeBadgeName(name: string): string {
+    return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+const BLOCKED_BADGE_NAMES = new Set(
+    [
+        "discord",
+        "discord mod",
+        "staff",
+        "discord developer",
+        "discord active developer",
+        "discord staff",
+        "discord moderator",
+        "discord employee",
+        "discord team",
+        "discord partner",
+        "discord support",
+        "certified moderator",
+        "verified bot developer",
+    ].map(normalizeBadgeName)
+);
+
+function isBlockedBadgeName(name: string | null | undefined): boolean {
+    if (!name) return false;
+    return BLOCKED_BADGE_NAMES.has(normalizeBadgeName(name));
+}
+
+const BLOCKED_BADGE_NAME_MESSAGE = "That badge name isn't allowed - it impersonates an official Discord role/badge";
+
 function describeBadgeApiError(e: unknown): string {
     const message = e instanceof Error ? e.message : String(e);
     const sep = message.indexOf(":");
@@ -621,6 +650,7 @@ function validateBadgePayload(parsed: any): string | null {
     if (!parsed || typeof parsed !== "object") return "That code isn't a valid badge, it didn't decode to an object";
     if (typeof parsed.imageUrl !== "string" || !parsed.imageUrl.trim()) return "That code is missing a valid image URL";
     if (typeof parsed.name !== "string" || !parsed.name.trim()) return "That code is missing a valid badge name";
+    if (isBlockedBadgeName(parsed.name)) return BLOCKED_BADGE_NAME_MESSAGE;
     if (parsed.style !== undefined && parsed.style !== null && (typeof parsed.style !== "object" || Array.isArray(parsed.style))) {
         return "That code has an invalid style block";
     }
@@ -1217,6 +1247,11 @@ export function updateMyBadgeFromSettings() {
     const { myBadgeImageUrl, myBadgeName } = settings.store;
     if (!myBadgeImageUrl || !myBadgeName) return;
 
+    if (isBlockedBadgeName(myBadgeName)) {
+        showBadgeErrorToast(BLOCKED_BADGE_NAME_MESSAGE);
+        return;
+    }
+
     if (lastPublishedSnapshot) pushBadgeHistory(lastPublishedSnapshot);
     lastPublishedSnapshot = { imageUrl: myBadgeImageUrl, name: myBadgeName, style: getMyBadgeStyle(), prefs: getMyBadgePrefs() };
 
@@ -1377,6 +1412,11 @@ export function createNewBadgeSlot() {
     const list = getMyBadges();
     if (list.length >= MAX_BADGES) {
         Toasts.show({ id: Toasts.genId(), type: Toasts.Type.FAILURE, message: `You can only have up to ${MAX_BADGES} badges` });
+        return;
+    }
+
+    if (isBlockedBadgeName(settings.store.myBadgeName)) {
+        showBadgeErrorToast(BLOCKED_BADGE_NAME_MESSAGE);
         return;
     }
 
