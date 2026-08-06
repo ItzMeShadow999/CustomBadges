@@ -15,131 +15,140 @@
 
 </div>
 
-A Vencord plugin that gives you a custom profile badge image, description,
-and styling with hover tooltips, a click popup, badge rotation ("My
-Badges"), presets, and packs. Bundled with **UserBoard**, a sidebar button
-that opens a full in-app dashboard for managing everything without leaving
-Discord.
+A Vencord plugin that gives you a custom profile badge image, description, and hover tooltip rendered natively through Vencord's built in BadgeAPI using React. No DOM hacks, no MutationObservers, no injected HTML. Badge data is synced through a small Cloudflare Worker + KV backend.
+
+$$\color{#FFB6C1}\textsf{This is the React branch. It replaces all DOM injection, custom popups,}$$
+$$\color{#FFB6C1}\textsf{and the vanilla-JS dashboard from the original branch with clean, native Vencord integration.}$$
 
 ## Features
 
-- Custom profile badge: image, description, and color/shape/animation styling
-- Multiple badges per user with one active at a time ("My Badges" rotation)
+- Custom profile badge with image URL, name/description, and shape/size/hover styling
+- Multiple saved badge slots (up to 12) with one active at a time
 - Presets and importable/exportable badge packs
-- Dedicated sidebar dashboard (black-themed) for managing badges without
-  opening Discord's settings
-- Badge data synced through a small Cloudflare Worker + KV backend, with
-  server-side rate limiting
+- Badge hover tooltip rendered via Vencord's native React tooltip system
+- All settings managed through the standard Vencord settings tab no separate dashboard
+- Badge data synced server side (keyed to your Discord user ID) so it follows you across devices
 
 ---
 
 <details>
-<summary><h2 style="display:inline-block; margin:0;"><img src="https://files.catbox.moe/9d4gfc.png" width="40" height="40" align="absmiddle" /> Installation (click to expand)</h2></summary>
-Follow the steps below to install the plugin manually.
+<summary><h2 style="display:inline-block; margin:0;">📦 Installation (click to expand)</h2></summary>
 
-### 1. Clone the Vencord repo & pnpm install
-```
+### 1. Clone the Vencord repo & install dependencies
+
+```bash
 git clone https://github.com/Vendicated/Vencord
-```
-```
-cd "YOURPATHHERE"
-```
-```
+cd Vencord
 pnpm install
 ```
- 
-### 2. Locate your Vencord `userplugins` folder in `\Vencord\src`
- - If the folder doesn't exist, create it.
-### 2. Create a new folder inside `userplugins` called `customBadges`
- 
-Copy every file from this project into it, keeping the same structure:
- 
+
+### 2. Locate your `userplugins` folder
+
+Navigate to `Vencord/src/userplugins/`. If the folder doesn't exist, create it.
+
+### 3. Create a `customBadges` folder inside `userplugins`
+
+Copy the files from this branch into it:
+
 ```
 userplugins/customBadges/
 ├── index.tsx
-├── native.ts
-└── dashboard/
-    ├── types.ts
-    ├── bridge.ts
-    ├── button.ts
-    ├── buttonRegistry.ts
-    ├── dashboardView.ts
-    ├── html.ts
-    └── wireSettings.ts
+└── native.ts
 ```
- 
-### 3. Rebuild Vencord
- 
-- Source build: run `pnpm build` (or `npm run build`), then `pnpm inject` if you haven't already injected Vencord into your Discord client.
-- Installer-based build with plugin auto-detection: just restart Discord after copying the files in.
-### 4. Enable the plugin
- 
+
+> The React branch has a simpler file structure no `dashboard/` subfolder needed.
+
+### 4. Rebuild Vencord
+
+- **Source build:** run `pnpm build`, then `pnpm inject` if you haven't injected Vencord yet.
+- **Installer based build with plugin auto detection:** just restart Discord after copying the files.
+
+### 5. Enable the plugin
+
 Open Discord → Vencord Settings → Plugins, find **CustomBadges**, and enable it.
- 
-### 5. Restart Discord
- 
-Ctrl/Cmd+R
- 
+
+### 6. Restart Discord
+
+`Ctrl/Cmd + R`
+
 </details>
+
+---
 
 ## Usage
 
-- Open the plugin's settings tab in Vencord Settings to set your badge image,
-  description, and style, **or**
-- Use the new dashboard button added to your DM sidebar it opens a
-  full-page dashboard where you can set your badge, switch between saved
-  badges, import/apply presets, import a badge pack from a URL, or generate
-  your own pack to share.
-- Your badge is stored server-side (keyed to your Discord user ID) so it
-  follows you across devices as long as the plugin is installed and enabled.
+Open **Vencord Settings → Plugins → CustomBadges → Settings** to configure your badge:
 
-### Backend (for self-hosting / contributors)
+- **Image URL**: link to your badge image (any publicly hosted image)
+- **Description / Name**: the text shown in the hover tooltip
+- **Shape**: circle, rounded square, or square
+- **Size**: how large the badge renders in the badge row
+- **Hover effect**: none, scale, or glow (with a custom glow color)
 
-The `worker.js` + `wrangler.toml` in this project deploy to Cloudflare
-Workers with a KV namespace for badge storage. If you want to run your own
-instance instead of using the default endpoint:
+Hit **Publish Badge** to push your badge to the server. Anyone else running the plugin will see it the next time they view your profile.
 
-1. `wrangler kv namespace create BADGES_KS` and put the resulting id into
-   `wrangler.toml`.
+### Badge Slots ("My Badges")
+
+You can save up to **12 different badges** as slots and switch between them at any time. The currently active slot is what gets published and shown to others.
+
+### Presets
+
+Six built-in presets are available (Minecraft, cat, and others). Selecting one and clicking **Apply Preset** overwrites your active badge with that preset's image, name, and style, then publishes it.
+
+### Badge Packs
+
+- **Import a pack**: paste a `raw.githubusercontent.com` URL pointing to a pack JSON file. Valid badges from the pack are added as new slots (up to the 12-slot cap).
+- **Export a pack**: bundles all your saved slots into a JSON pack string, copied to clipboard, ready to share or host.
+
+### Revert
+
+Every time you publish, the previous badge is saved locally. **Revert to Previous Badge** restores it.
+
+### Mutual-Guild Filter
+
+An optional toggle limits badge rendering to users you share a server with, instead of showing badges from everyone with the plugin.
+
+---
+
+## What Changed from the Original Branch
+
+| Feature | Original branch | This branch (React) |
+|---|---|---|
+| Badge rendering | DOM injection via `MutationObserver` | Vencord `BadgeAPI` (React) |
+| Tooltip | Custom fixed position `<div>` | Vencord native tooltip |
+| Click popup card | Custom floating React portal | **Removed** |
+| Dashboard UI | Vanilla-JS full page panel in DM sidebar | **Removed** |
+| File structure | `index.tsx` + `native.ts` + `dashboard/*` | `index.tsx` + `native.ts` only |
+| Settings UI | Two parallel UIs (settings tab + dashboard) | Single Vencord settings tab |
+
+---
+
+## Backend (Self Hosting / Contributors)
+
+The `worker.js` + `wrangler.toml` deploy to Cloudflare Workers with a KV namespace for badge storage. To run your own instance:
+
+1. `wrangler kv namespace create BADGES_KS` and put the resulting ID into `wrangler.toml`.
 2. `wrangler deploy`.
-3. Point the plugin at your worker by passing your own `apiBase` where
-   `native.ts`'s functions are called.
----
-
-## Badge Preview
-
-**1. Hover** — shows the badge tooltip
-
-<img src="https://files.catbox.moe/brmqre.png" width="500" />
-
-**2. Click** — opens the full badge popup card
-
-<img src="https://files.catbox.moe/unhdgj.png" width="500" />
+3. Point the plugin at your worker by changing the `apiBase` value in `native.ts`.
 
 ---
+
 ## License
 
-This plugin is built for and depends on [Vencord](https://github.com/Vendicated/Vencord),
-which is licensed under the **GNU General Public License v3.0 (or later)**.
-In keeping with that, this plugin is also distributed under **GPL-3.0-or-later**.
+This plugin is built for and depends on [Vencord](https://github.com/Vendicated/Vencord), licensed under the **GNU General Public License v3.0 (or later)**. This plugin is also distributed under **GPL-3.0-or-later**.
 
-That means: you're free to use, study, modify, and share this plugin, but if
-you distribute a modified version, you must also make its source available
-under the same license. See the full license text at
-https://www.gnu.org/licenses/gpl-3.0.html, or the `LICENSE` file in this
-project for the standard notice.
+You're free to use, study, modify, and share this plugin but if you distribute a modified version, you must make its source available under the same license. See [the full license text](https://www.gnu.org/licenses/gpl-3.0.html) or the `LICENSE` file in this project.
 
-This is a third-party plugin and isn't affiliated with, endorsed by, or
-supported by Discord Inc. Use of client modifications is against Discord's
-Terms of Service  use at your own risk.
+This is a third party plugin, not affiliated with, endorsed by, or supported by Discord Inc. Use of client modifications is against Discord's Terms of Service use at your own risk.
+
+---
 
 ## Community & Support
 
-- **Found someone using this plugin to display NSFW, hateful, or otherwise
-  abusive badge content?** Please report it  don't just block and move on.
+- **Found someone using this plugin to display NSFW, hateful, or abusive badge content?** Please report it don't just block and move on.
 - **Something broken or not working as expected?**
-  1. Check the [FAQs](https://discord.com/channels/1533400308074549340/1533404426562179103) first  your issue may already be answered there.
+  1. Check the [FAQs](https://discord.com/channels/1533400308074549340/1533404426562179103) first - your issue may already be answered there.
   2. If it's not covered, ask in the [issues help chat](https://discord.com/channels/1533400308074549340/1533400758769287198).
   3. To report a bug, abuse, or a badge that violates the rules, use the [Reports chat](https://discord.com/channels/1533400308074549340/1533400476505215106).
-- Join the server here: https://discord.gg/PUYaka9Hy8
-- You can optionally tag [Shadow](https://discord.com/users/1065604516399026176) in the relevant channel for visibility  **please don't send DMs**, they're most likely filtered out and won't be seen.
+- Join the server: https://discord.gg/PUYaka9Hy8
+- You can optionally tag [Shadow](https://discord.com/users/1065604516399026176) in the relevant channel **please don't send DMs**, they're most likely filtered and won't be seen.
