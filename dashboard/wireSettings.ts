@@ -736,3 +736,4 @@ export function wireDashboardSettings(root: HTMLElement) {
         }
     });
 }
+
