@@ -14,15 +14,15 @@
 ![Status](https://img.shields.io/badge/Status-Active-B8E6B8?style=flat&labelColor=E0F5E0&logoColor=1F5C1F)
 
 </div>
+A Vencord plugin that gives you a custom profile badge image, description, and hover tooltip rendered natively through Vencord's built in BadgeAPI using React. No DOM hacks, no MutationObservers, no injected HTML. Badge data is synced through a small Cloudflare Worker + KV backend, and writes are now protected behind account verification.
+ 
+$\color{#FFB6C1}\textsf{This is the React branch. It replaces all DOM injection, custom popups, and the vanilla-JS dashboard from the original branch}$
+$\color{#FFB6C1}\textsf{with clean, native Vencord integration.}$
 
-A Vencord plugin that gives you a custom profile badge image, description, and hover tooltip rendered natively through Vencord's built in BadgeAPI using React. No DOM hacks, no MutationObservers, no injected HTML. Badge data is synced through a small Cloudflare Worker + KV backend.
-
-$$\color{#FFB6C1}\textsf{This is the React branch. It replaces all DOM injection, custom popups,}$$
-$$\color{#FFB6C1}\textsf{and the vanilla-JS dashboard from the original branch with clean, native Vencord integration.}$$
-
-## Features
+<img src="https://raw.githubusercontent.com/ItzMeShadow999/My-assets/main/features-header.svg" alt="Features" width="100%" />
 
 - Custom profile badge with image URL, name/description, and shape/size/hover styling
+- **Account verification**: writes to your badge require a session token proving you own the Discord account you're publishing as
 - Multiple saved badge slots (up to 12) with one active at a time
 - Presets and importable/exportable badge packs
 - Badge hover tooltip rendered via Vencord's native React tooltip system
@@ -32,7 +32,7 @@ $$\color{#FFB6C1}\textsf{and the vanilla-JS dashboard from the original branch w
 ---
 
 <details>
-<summary><h2 style="display:inline-block; margin:0;">📦 Installation (click to expand)</h2></summary>
+<summary><img src="https://files.catbox.moe/9d4gfc.png" width="40" height="40" align="absmiddle" /> <img src="https://files.catbox.moe/p7kjyc.svg" height="30" align="absmiddle" alt="Installation (click to expand)" /></summary>
 
 ### 1. Clone the Vencord repo & install dependencies
 
@@ -71,15 +71,19 @@ Open Discord → Vencord Settings → Plugins, find **CustomBadges**, and enable
 
 `Ctrl/Cmd + R`
 
+### 7. Verify your account
+
+Open **Vencord Settings → Plugins → CustomBadges → Settings**, click **Verify Discord Account**, and follow the browser prompt. Paste the code it gives you into the **Session Token** field. You only need to do this once  do it before trying to publish, switch, or delete a badge.
+
 </details>
 
 ---
 
-## Usage
+<img src="https://raw.githubusercontent.com/ItzMeShadow999/My-assets/main/usage-header.svg" alt="Usage" width="100%" />
 
 Open **Vencord Settings → Plugins → CustomBadges → Settings** to configure your badge:
 
-- **Image URL**: link to your badge image (any publicly hosted image)
+- **Image URL**: link to your badge image. Must be hosted on one of `i.imgur.com`, `i.ibb.co`, `i.pinimg.com`, `files.catbox.moe`, `cdn.discordapp.com`, or `media.discordapp.net`  Discord silently blocks other hosts, so your badge just won't load
 - **Description / Name**: the text shown in the hover tooltip
 - **Shape**: circle, rounded square, or square
 - **Size**: how large the badge renders in the badge row
@@ -87,13 +91,25 @@ Open **Vencord Settings → Plugins → CustomBadges → Settings** to configure
 
 Hit **Publish Badge** to push your badge to the server. Anyone else running the plugin will see it the next time they view your profile.
 
+### Account Verification
+
+Publishing, switching, or deleting a badge now requires proving you own the Discord account you're doing it as:
+
+1. Click **Verify Discord Account** in settings. This opens your browser to the worker's `/auth/start` page.
+2. Confirm you're signed in as the right account and follow the prompt there.
+3. Copy the code it gives you back and paste it into the **Session Token** field in settings.
+
+That token is what authorizes every write from then on (sent as a `Bearer` header)  reading badges (yours or anyone else's) never required it and still doesn't. The token doesn't expire on its own; if a publish/switch/delete ever fails with an auth error, just re-verify and paste a fresh code. The token field itself is masked once you click away, so it's not left sitting in plain text in your settings.
+
+If you ever lose track of your token, or think someone else got hold of it, hit **Revoke Your Token**  this immediately kills that token server-side (on every device using it), and you'll need to verify again to get a new one.
+
 ### Badge Slots ("My Badges")
 
 You can save up to **12 different badges** as slots and switch between them at any time. The currently active slot is what gets published and shown to others.
 
 ### Presets
 
-Six built-in presets are available (Minecraft, cat, and others). Selecting one and clicking **Apply Preset** overwrites your active badge with that preset's image, name, and style, then publishes it.
+Built-in presets are available (Minecraft, cat, a verified-user style, and others). Selecting one and clicking **Apply Preset** overwrites your active badge with that preset's image, name, and style, then publishes it  this still requires a verified session token.
 
 ### Badge Packs
 
@@ -110,7 +126,7 @@ An optional toggle limits badge rendering to users you share a server with, inst
 
 ---
 
-## What Changed from the Original Branch
+<img src="https://raw.githubusercontent.com/ItzMeShadow999/My-assets/main/what-changed-header.svg" alt="What Changed from the Original Branch" width="100%" />
 
 | Feature | Original branch | This branch (React) |
 |---|---|---|
@@ -123,17 +139,18 @@ An optional toggle limits badge rendering to users you share a server with, inst
 
 ---
 
-## Backend (Self Hosting / Contributors)
+<img src="https://raw.githubusercontent.com/ItzMeShadow999/My-assets/main/backend-header.svg" alt="Backend (Self Hosting / Contributors)" width="100%" />
 
 The `worker.js` + `wrangler.toml` deploy to Cloudflare Workers with a KV namespace for badge storage. To run your own instance:
 
 1. `wrangler kv namespace create BADGES_KS` and put the resulting ID into `wrangler.toml`.
 2. `wrangler deploy`.
-3. Point the plugin at your worker by changing the `apiBase` value in `native.ts`.
+3. Point the plugin at your worker by changing the `apiBaseUrl` value in plugin settings (or the `apiBase` default in `native.ts`).
+4. Your worker needs to serve `/auth/start` and accept `Authorization: Bearer <token>` on write requests, plus a `/self/revoke` endpoint, for verification and revocation to work.
 
 ---
 
-## License
+<img src="https://raw.githubusercontent.com/ItzMeShadow999/My-assets/main/license-header.svg" alt="License" width="100%" />
 
 This plugin is built for and depends on [Vencord](https://github.com/Vendicated/Vencord), licensed under the **GNU General Public License v3.0 (or later)**. This plugin is also distributed under **GPL-3.0-or-later**.
 
@@ -143,7 +160,7 @@ This is a third party plugin, not affiliated with, endorsed by, or supported by 
 
 ---
 
-## Community & Support
+<img src="https://raw.githubusercontent.com/ItzMeShadow999/My-assets/main/community-header.svg" alt="Community & Support" width="100%" />
 
 - **Found someone using this plugin to display NSFW, hateful, or abusive badge content?** Please report it don't just block and move on.
 - **Something broken or not working as expected?**
