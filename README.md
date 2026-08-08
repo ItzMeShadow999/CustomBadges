@@ -224,3 +224,4 @@ Terms of Service  use at your own risk.
   3. To report a bug, abuse, or a badge that violates the rules, use the [Reports chat](https://discord.com/channels/1533400308074549340/1533400476505215106).
 - Join the server here: https://discord.gg/PUYaka9Hy8
 - You can optionally tag [Shadow](https://discord.com/users/1065604516399026176) in the relevant channel for visibility  **please don't send DMs**, they're most likely filtered out and won't be seen.
+
