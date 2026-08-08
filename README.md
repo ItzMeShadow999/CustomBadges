@@ -32,7 +32,8 @@ $\color{#FFB6C1}\textsf{with clean, native Vencord integration.}$
 ---
 
 <details>
-<summary><img src="https://files.catbox.moe/9d4gfc.png" width="40" height="40" align="absmiddle" /> <img src="https://files.catbox.moe/p7kjyc.svg" height="30" align="absmiddle" alt="Installation (click to expand)" /></summary>
+<summary><img src="https://files.catbox.moe/9d4gfc.png" width="30" height="30" align="absmiddle" /> $\Huge{\color{#FFB6C1}\textsf{Installation (click to expand)}}$</summary>
+
 
 ### 1. Clone the Vencord repo & install dependencies
 
