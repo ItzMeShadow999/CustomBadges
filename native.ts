@@ -55,6 +55,19 @@ function checkClientRateLimit() {
     writeRequestTimestamps.push(now);
 }
 
+function authHeaders(sessionToken?: string): Record<string, string> {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
+    return headers;
+}
+
+function requireSessionToken(sessionToken?: string): string {
+    if (!sessionToken) {
+        throw taggedError("NOT_VERIFIED", "Verify your Discord account in settings first (\"Verify Discord Account\" button)");
+    }
+    return sessionToken;
+}
+
 export async function fetchBadge(_event: any, userId: string, apiBase?: string) {
     const base = apiBase || DEFAULT_API_BASE;
     const res = await fetchWithTimeout(`${base}?userId=${encodeURIComponent(userId)}`);
@@ -63,35 +76,52 @@ export async function fetchBadge(_event: any, userId: string, apiBase?: string) 
     return parseJsonOrThrow(res);
 }
 
-export async function setBadge(_event: any, userId: string, badgeId: string, imageUrl: string, description: string, style?: Record<string, unknown>, apiBase?: string) {
+export async function setBadge(_event: any, userId: string, badgeId: string, imageUrl: string, description: string, style: Record<string, unknown> | undefined, sessionToken: string, apiBase?: string) {
     checkClientRateLimit();
+    const token = requireSessionToken(sessionToken);
     const base = apiBase || DEFAULT_API_BASE;
     const res = await fetchWithTimeout(base, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(token),
+        
+        
+        
         body: JSON.stringify({ action: "setBadge", userId, badgeId, imageUrl, description, style })
     });
     return parseJsonOrThrow(res);
 }
 
-export async function setActiveBadge(_event: any, userId: string, badgeId: string, apiBase?: string) {
+export async function setActiveBadge(_event: any, userId: string, badgeId: string, sessionToken: string, apiBase?: string) {
     checkClientRateLimit();
+    const token = requireSessionToken(sessionToken);
     const base = apiBase || DEFAULT_API_BASE;
     const res = await fetchWithTimeout(base, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(token),
         body: JSON.stringify({ action: "setActiveBadge", userId, badgeId })
     });
     return parseJsonOrThrow(res);
 }
 
-export async function deleteBadge(_event: any, userId: string, badgeId: string, apiBase?: string) {
+export async function deleteBadge(_event: any, userId: string, badgeId: string, sessionToken: string, apiBase?: string) {
     checkClientRateLimit();
+    const token = requireSessionToken(sessionToken);
     const base = apiBase || DEFAULT_API_BASE;
     const res = await fetchWithTimeout(base, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(token),
         body: JSON.stringify({ action: "deleteBadge", userId, badgeId })
+    });
+    return parseJsonOrThrow(res);
+}
+
+export async function revokeOwnToken(_event: any, sessionToken: string, apiBase?: string) {
+    const token = requireSessionToken(sessionToken);
+    const base = apiBase || DEFAULT_API_BASE;
+    const res = await fetchWithTimeout(`${base}/self/revoke`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({})
     });
     return parseJsonOrThrow(res);
 }
