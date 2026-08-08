@@ -117,6 +117,74 @@ instance instead of using the default endpoint:
 <img src="https://files.catbox.moe/unhdgj.png" width="500" />
 
 ---
+<details> <summary><h2 style="display:inline-block; margin:0;"><img src="https://files.catbox.moe/gykp64.png" width="30" height="30" align="absmiddle" /> Update Catalog (click to expand)</h2></summary>
+
+# CustomBadges — Patch Notes // V2
+## Highlights
+
+- **Account verification (session tokens)**   badge writes (set / switch / delete) now require a verified session token instead of being trusted on `userId` alone.
+- **Dashboard gets its own opening/closing animation** and no longer hides Discord's real UI to render itself.
+- **Standalone dashboard is now feature-complete with the Vencord settings tab**   tooltip/popup/owner-tag/mutual-guild toggles that previously only existed in Discord's native Settings are now wired into the dashboard too.
+- **Badge Pack Sharing Guidelines panel**, in both the Vencord settings tab and the standalone dashboard, with a CRT power-off close animation.
+- **Session token input** with an animated letter → dot masking effect.
+- **Layout fix**: dashboard content no longer has a large dead gap on the left/right.
+
+---
+
+## `native.ts`
+
+- Added `authHeaders()` / `requireSessionToken()` helpers.
+- `setBadge`, `setActiveBadge`, `deleteBadge` now take a `sessionToken` argument and send it as a `Bearer` auth header; each throws `NOT_VERIFIED` if no token is present.
+- Added `revokeOwnToken()`   calls `POST {apiBase}/self/revoke` to invalidate the current session token.
+
+## `dashboard/bridge.ts`
+
+- `DashboardBridge` interface extended with `verifyAccount`, `revokeSessionToken`, `switchToBadge`, `deleteBadgeSlot` so the standalone dashboard can call them (previously these lived only in `index.tsx` and weren't exposed to the dashboard).
+
+## `dashboard/dashboardView.ts`
+
+- **Mounting strategy changed**: the wrapper now mounts on `<body>` and is pinned over the main content area with `position: fixed` + `getBoundingClientRect()`, instead of being appended inside `mainArea` with its siblings hidden via `display: none`. Discord's message list and everything else underneath now keeps rendering normally the whole time   this is what fixed the blank-pane bug on close.
+- Added a `resize` listener + light `setInterval` poll to reposition the wrapper if Discord's own layout shifts (sidebar/member-list toggle) without a `resize` event.
+- **Open/close animation**: wrapper fades and scales in on open (`opacity 0→1`, `scale(0.97)→scale(1)`, slight `translateY`), and now animates back out on close instead of being removed instantly   `restoreDefaultView()` waits ~200ms before actually detaching it. Reopening mid-close cancels the pending removal.
+
+## `dashboard/html.ts`
+
+- New `shield` icon (used for the Account Verification section).
+- New **Account Verification** section: Verify / Revoke buttons + session token field.
+- New **session token input** styling   text is painted transparent over a real `<input>`, with a per-character overlay that morphs each letter into a masking dot on blur (and back on focus), including scroll-sync so it stays aligned once the token overflows the field width.
+- New **preference toggle switches** in the dashboard itself (tooltip, popup, owner tag, append Vencord tag, hide own badge, restrict to mutual servers)   previously these only existed in Discord's native Settings tab.
+- New **`ub-btn-danger-solid`** / **`ub-btn-link`** button styles.
+- New **Badge Pack Sharing Guidelines panel** (`#ub-guidelines-panel` + backdrop)   format spec, pack-size note, content rules, submission steps, and a "Got it" close button. Closes with a CRT-style power-off collapse + flash instead of a plain fade.
+- **Layout fix**: `.contentSection_b6bcee` / `.content_b6bcee` (Discord's own settings classes) were inheriting centering meant for a page that sits next to a nav sidebar; since the dashboard doesn't render that sidebar, this left a large empty gap on the left (and right) of the cards. Now forced flush-left and full-width.
+
+## `dashboard/wireSettings.ts`
+
+- Added `wireSwitch()` / `setSwitchValue()` generic toggle wiring, used for all the new dashboard preference switches.
+- Added the session-token masking logic: `buildTokenChars()`, `setTokenMasked()`, `syncOverlayScroll()`, `escapeHtml()`.
+- Added `openGuidelines()` / `closeGuidelines()` for the new guidelines panel (open resets and restarts the transition so it can be reopened right after closing; close waits out the 340ms CRT animation before clearing state).
+- Added `updatePopupLockState()`   disables the popup/owner-tag controls when badge mode is `"vencord"` (Vencord Classic mode can't support the click-to-view popup).
+- Added `renderMyBadgesList()`.
+
+## `index.tsx`
+
+- `describeBadgeApiError()` now handles the `NOT_VERIFIED` error kind.
+- New settings entries: `verifyAccount` (opens `{apiBase}/auth/start` via Discord OAuth, identify scope only), `sessionToken`, `revokeToken`.
+- New `verifyDiscordAccount()` and `revokeSessionToken()` functions.
+- New `SessionTokenInput` and `RevokeTokenButton` React components (Vencord settings tab equivalent of the dashboard's token field/masking behavior).
+- `switchToBadge()` and `deleteBadgeSlot()` are now `export`ed and pass `settings.store.sessionToken` through to `setActiveBadge` / `deleteBadge`.
+- `setBadge` call site updated to pass the session token.
+- Added `renderJsonHighlighted()`   simple JSON syntax highlighter (keys/strings/numbers/literals/punctuation) used when previewing a pack's JSON.
+- Added `PackGuidelinesModal` component   the Vencord-settings-tab version of the guidelines panel, same CRT power-off close animation.
+- "Make Pack" button extracted into its own `MakePackButton` component; badge pack action buttons grouped into `BadgePacksButtonsRow`.
+
+## Unchanged
+
+`dashboard/button.ts`, `dashboard/buttonRegistry.ts`, `dashboard/types.ts`   no differences.
+</details>
+
+---
+
+
 ## License
 
 This plugin is built for and depends on [Vencord](https://github.com/Vendicated/Vencord),
