@@ -21,7 +21,7 @@ Badges"), presets, and packs. Bundled with **UserBoard**, a sidebar button
 that opens a full in-app dashboard for managing everything without leaving
 Discord.
 
-## Features
+<img src="https://raw.githubusercontent.com/ItzMeShadow999/My-assets/main/features-header.svg" alt="Features" width="100%" />
 
 - Custom profile badge: image, description, and color/shape/animation styling
 - Multiple badges per user with one active at a time ("My Badges" rotation)
@@ -34,7 +34,7 @@ Discord.
 ---
 
 <details>
-<summary><h2 style="display:inline-block; margin:0;"><img src="https://files.catbox.moe/9d4gfc.png" width="40" height="40" align="absmiddle" /> Installation (click to expand)</h2></summary>
+<summary><img src="https://files.catbox.moe/9d4gfc.png" width="30" height="30" align="absmiddle" /> $\Huge{\color{#FFB6C1}\textsf{Installation (click to expand)}}$</summary>
 Follow the steps below to install the plugin manually.
 
 ### 1. Clone the Vencord repo & pnpm install
@@ -82,7 +82,9 @@ Ctrl/Cmd+R
  
 </details>
 
-## Usage
+---
+
+<img src="https://raw.githubusercontent.com/ItzMeShadow999/My-assets/main/usage-header.svg" alt="Usage" width="100%" />
 
 - Open the plugin's settings tab in Vencord Settings to set your badge image,
   description, and style, **or**
@@ -93,7 +95,7 @@ Ctrl/Cmd+R
 - Your badge is stored server-side (keyed to your Discord user ID) so it
   follows you across devices as long as the plugin is installed and enabled.
 
-### Backend (for self-hosting / contributors)
+<img src="https://raw.githubusercontent.com/ItzMeShadow999/My-assets/main/backend-header.svg" alt="Backend (Self Hosting / Contributors)" width="100%" />
 
 The `worker.js` + `wrangler.toml` in this project deploy to Cloudflare
 Workers with a KV namespace for badge storage. If you want to run your own
@@ -198,7 +200,7 @@ If you ever lose track of your token, or think someone else got hold of it, hit 
 ---
 
 
-## License
+<img src="https://raw.githubusercontent.com/ItzMeShadow999/My-assets/main/license-header.svg" alt="License" width="100%" />
 
 This plugin is built for and depends on [Vencord](https://github.com/Vendicated/Vencord),
 which is licensed under the **GNU General Public License v3.0 (or later)**.
@@ -214,7 +216,7 @@ This is a third-party plugin and isn't affiliated with, endorsed by, or
 supported by Discord Inc. Use of client modifications is against Discord's
 Terms of Service  use at your own risk.
 
-## Community & Support
+<img src="https://raw.githubusercontent.com/ItzMeShadow999/My-assets/main/community-header.svg" alt="Community & Support" width="100%" />
 
 - **Found someone using this plugin to display NSFW, hateful, or otherwise
   abusive badge content?** Please report it  don't just block and move on.
