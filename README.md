@@ -104,6 +104,19 @@ instance instead of using the default endpoint:
 2. `wrangler deploy`.
 3. Point the plugin at your worker by passing your own `apiBase` where
    `native.ts`'s functions are called.
+
+### Account Verification
+
+Publishing, switching, or deleting a badge now requires proving you own the Discord account you're doing it as:
+
+Click Verify Discord Account in settings. This opens your browser to the worker's /auth/start page.
+Confirm you're signed in as the right account and follow the prompt there.
+Copy the code it gives you back and paste it into the Session Token field in settings.
+
+That token is what authorizes every write from then on (sent as a Bearer header) reading badges (yours or anyone else's) never required it and still doesn't. The token doesn't expire on its own; if a publish/switch/delete ever fails with an auth error, just re-verify and paste a fresh code. The token field itself is masked once you click away, so it's not left sitting in plain text in your settings.
+
+If you ever lose track of your token, or think someone else got hold of it, hit Revoke Your Token this immediately kills that token server-side (on every device using it), and you'll need to verify again to get a new one.
+
 ---
 
 ## Badge Preview
