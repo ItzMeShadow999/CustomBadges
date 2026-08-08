@@ -6,6 +6,21 @@ import { wireDashboardSettings } from "./wireSettings";
 
 const DASHBOARD_CANVAS_ID = "ub-dashboard-wrapper";
 
+const ANIM_DURATION_MS = 200;
+const ANIM_EASING = "cubic-bezier(0.16, 1, 0.3, 1)";
+
+let closeTimeoutId: number | null = null;
+
+function setClosedState(wrapper: HTMLElement) {
+    wrapper.style.opacity = "0";
+    wrapper.style.transform = "scale(0.97) translateY(10px)";
+}
+
+function setOpenState(wrapper: HTMLElement) {
+    wrapper.style.opacity = "1";
+    wrapper.style.transform = "scale(1) translateY(0)";
+}
+
 function getMainArea(): HTMLElement | null {
     return (
         (document.querySelector('div[class*="sidebar_"] + div') as HTMLElement) ||
@@ -13,6 +28,16 @@ function getMainArea(): HTMLElement | null {
         document.querySelector("main")?.parentElement ||
         null
     );
+}
+
+let repositionHandlersBound = false;
+
+function positionWrapperOverMainArea(wrapper: HTMLElement, mainArea: HTMLElement) {
+    const rect = mainArea.getBoundingClientRect();
+    wrapper.style.top = `${rect.top}px`;
+    wrapper.style.left = `${rect.left}px`;
+    wrapper.style.width = `${rect.width}px`;
+    wrapper.style.height = `${rect.height}px`;
 }
 
 export function renderDashboardView(): void {
@@ -24,13 +49,6 @@ export function renderDashboardView(): void {
     const mainArea = getMainArea();
     if (!mainArea) return;
 
-    Array.from(mainArea.children).forEach(child => {
-        const el = child as HTMLElement;
-        if (el.id !== DASHBOARD_CANVAS_ID) {
-            el.style.display = "none";
-        }
-    });
-
     let wrapper = document.getElementById(DASHBOARD_CANVAS_ID);
 
     if (!wrapper) {
@@ -41,13 +59,14 @@ export function renderDashboardView(): void {
         wrapper.style.cssText = `
             display: flex;
             flex-direction: column;
-            width: 100%;
-            height: 100%;
             background-color: #000000;
-            position: relative;
+            position: fixed;
             z-index: 100;
             overflow: hidden;
+            transition: opacity ${ANIM_DURATION_MS}ms ${ANIM_EASING}, transform ${ANIM_DURATION_MS}ms ${ANIM_EASING};
+            will-change: opacity, transform;
         `;
+        setClosedState(wrapper);
 
         wrapper.innerHTML = `
             ${headerBarHtml()}
@@ -65,25 +84,64 @@ export function renderDashboardView(): void {
         wireDashboardSettings(wrapper);
     }
 
-    if (!mainArea.contains(wrapper)) {
-        mainArea.appendChild(wrapper);
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    if (closeTimeoutId !== null) {
+        window.clearTimeout(closeTimeoutId);
+        closeTimeoutId = null;
+    }
+
+    const isNewlyMounted = !document.body.contains(wrapper);
+    if (isNewlyMounted) {
+        document.body.appendChild(wrapper);
+    }
+
+    positionWrapperOverMainArea(wrapper, mainArea);
+
+    if (isNewlyMounted) {
+        
+        
+        
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => setOpenState(wrapper as HTMLElement));
+        });
+    }
+
+    if (!repositionHandlersBound) {
+        repositionHandlersBound = true;
+
+        const reposition = () => {
+            if (!state.isDashboardActive) return;
+            const area = getMainArea();
+            const w = document.getElementById(DASHBOARD_CANVAS_ID);
+            if (area && w) positionWrapperOverMainArea(w, area);
+        };
+
+        window.addEventListener("resize", reposition);
+        
+        
+        
+        setInterval(reposition, 500);
     }
 
     buttonRegistry.updateAllStates();
 }
 
 export function restoreDefaultView(): void {
-    const mainArea = getMainArea();
-
-    if (mainArea) {
-        const wrapper = document.getElementById(DASHBOARD_CANVAS_ID);
-        if (wrapper) {
+    const wrapper = document.getElementById(DASHBOARD_CANVAS_ID);
+    if (wrapper && closeTimeoutId === null) {
+        setClosedState(wrapper);
+        closeTimeoutId = window.setTimeout(() => {
             wrapper.remove();
-        }
-
-        Array.from(mainArea.children).forEach(child => {
-            (child as HTMLElement).style.display = "";
-        });
+            closeTimeoutId = null;
+        }, ANIM_DURATION_MS);
     }
 
     buttonRegistry.updateAllStates();
