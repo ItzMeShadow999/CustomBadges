@@ -315,7 +315,7 @@ const settings = definePluginSettings({
         type: OptionType.COMPONENT,
         description: "Clear locally cached badge data so changes made on the server show up immediately",
         component: () => (<Button onClick={refreshBadgeCache}>
-                <img src="https://uxwing.com/wp-content/themes/uxwing/download/web-app-development/circle-arrow-icon.png" alt="" style={{ width: 16, height: 16, marginRight: 6, verticalAlign: "middle" }}/>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: 6, verticalAlign: "middle" }} aria-hidden="true"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
                 Refresh Badge Cache
             </Button>)
     }
@@ -791,6 +791,7 @@ const cache = new Map<string, {
     description: string;
     style?: Partial<BadgeStyle>;
 } | null>();
+const sampledColorCache = new Map<string, string>();
 export function refreshBadgeCache() {
     cache.clear();
     sampledColorCache.clear();
@@ -1452,7 +1453,7 @@ export default definePlugin({
             Component: CustomBadgesTab,
             Icon: CustomBadgesTabIcon
         });
-        SettingsPlugin.settingsSectionMap.push(["VencordCustomBadges", "vencord_custom_badges"]);
+        SettingsPlugin.settingsSectionMap?.push(["VencordCustomBadges", "vencord_custom_badges"]);
         syncMyBadgesFromServer();
     },
     stop() {
@@ -1460,9 +1461,9 @@ export default definePlugin({
         const entryIdx = SettingsPlugin.customEntries.findIndex(e => e.key === "vencord_custom_badges");
         if (entryIdx !== -1)
             SettingsPlugin.customEntries.splice(entryIdx, 1);
-        const mapIdx = SettingsPlugin.settingsSectionMap.findIndex(e => e[1] === "vencord_custom_badges");
+        const mapIdx = SettingsPlugin.settingsSectionMap?.findIndex(e => e[1] === "vencord_custom_badges") ?? -1;
         if (mapIdx !== -1)
-            SettingsPlugin.settingsSectionMap.splice(mapIdx, 1);
+            SettingsPlugin.settingsSectionMap?.splice(mapIdx, 1);
     },
     patches: [
         {
