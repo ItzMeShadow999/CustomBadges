@@ -3,7 +3,7 @@ import { definePluginSettings } from "@api/Settings";
 import SettingsPlugin from "@plugins/_core/settings";
 import definePlugin, { OptionType } from "@utils/types";
 import { Button, Forms, GuildMemberStore, GuildStore, FluxDispatcher, Select, Switch, TextInput, Toasts, Tooltip, useEffect, useReducer, UserStore, useState } from "@webpack/common";
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
 import { onRouteChanged } from "./dashboard/button";
 import { buttonRegistry } from "./dashboard/buttonRegistry";
@@ -57,6 +57,8 @@ function describeBadgeApiError(e: unknown): string {
     const detail = sep === -1 ? "" : message.slice(sep + 1);
 
     switch (kind) {
+        case "NOT_VERIFIED":
+            return "Verify your Discord account first (see the \"Verify Discord Account\" button in settings)";
         case "CLIENT_RATE_LIMIT": {
             const seconds = Math.max(1, Math.ceil(Number(detail) / 1000) || 1);
             return `Slow down a little - try again in ${seconds}s`;
@@ -252,6 +254,29 @@ export const settings = definePluginSettings({
         type: OptionType.STRING,
         description: "Worker URL used to fetch/set badges. Left at the default, this points at the main hosted server, which is recommended since it's what lets you see everyone else's badges and lets them see yours. Only change this if you're self-hosting your own separate instance - if you do, you won't see other people's badges and they won't see yours unless everyone points at the same URL.",
         default: "https://custom-badges.shadow-164.workers.dev"
+    },
+    verifyAccount: {
+        type: OptionType.COMPONENT,
+        description: "Opens your browser to confirm you own this Discord account via Discord OAuth (identify scope only - no email, no guilds). Required once before badge changes (set/switch/delete) will be accepted by the server.",
+        component: () => (
+            <Button onClick={verifyDiscordAccount}>
+                Verify Discord Account
+            </Button>
+        )
+    },
+    sessionToken: {
+        type: OptionType.COMPONENT,
+        description: "Paste the session token shown after verifying your account here. Stored locally and sent as proof of identity on badge writes - never share it with anyone else.",
+        component: () => (
+            <SessionTokenInput />
+        )
+    },
+    revokeToken: {
+        type: OptionType.COMPONENT,
+        description: "Revoke your current session token immediately. You'll need to verify again before publishing further badge changes.",
+        component: () => (
+            <RevokeTokenButton />
+        )
     },
     myBadgeImageUrl: {
         type: OptionType.STRING,
@@ -468,7 +493,7 @@ export const settings = definePluginSettings({
         type: OptionType.COMPONENT,
         description: "Copy all your current badges as a pack JSON file, ready to push to a repo so others can import them",
         component: () => (
-            <Button onClick={() => { makePack(); }}>Make Pack (Copy JSON)</Button>
+            <MakePackButton />
         )
     },
     browsePacks: {
@@ -488,20 +513,11 @@ export const settings = definePluginSettings({
         description: "Clear locally cached badge data so changes made on the server show up immediately",
         component: () => (
             <Button onClick={refreshBadgeCache}>
-                <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{ marginRight: 6, verticalAlign: "middle" }}
-                >
-                    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                    <polyline points="21 3 21 9 15 9" />
-                </svg>
+                <img
+                    src="https://uxwing.com/wp-content/themes/uxwing/download/web-app-development/circle-arrow-icon.png"
+                    alt=""
+                    style={{ width: 16, height: 16, marginRight: 6, verticalAlign: "middle" }}
+                />
                 Refresh Badge Cache
             </Button>
         )
@@ -900,6 +916,129 @@ export async function getDashboardPreviewData() {
     };
 }
 
+export function verifyDiscordAccount() {
+    window.open(
+        `${settings.store.apiBaseUrl || "https://custom-badges.shadow-164.workers.dev"}/auth/start`,
+        "_blank", "noopener,noreferrer"
+    );
+}
+
+export async function revokeSessionToken() {
+    try {
+        await VencordNative.pluginHelpers.CustomBadges.revokeOwnToken(settings.store.sessionToken, settings.store.apiBaseUrl);
+        settings.store.sessionToken = "";
+        Toasts.show({ id: Toasts.genId(), type: Toasts.Type.SUCCESS, message: "Token revoked - re-verify to publish badge changes again" });
+    } catch (e) {
+        showBadgeErrorToast(describeBadgeApiError(e));
+    }
+}
+
+function SessionTokenInput() {
+    const [value, setValue] = useState(settings.store.sessionToken || "");
+    const [focused, setFocused] = useState(false);
+    const [masked, setMasked] = useState(!!settings.store.sessionToken);
+
+    function commit(v: string) {
+        setValue(v);
+        settings.store.sessionToken = v;
+    }
+
+    function handleFocus() {
+        setFocused(true);
+        setMasked(false);
+    }
+
+    function handleBlur() {
+        setFocused(false);
+        if (!value) return;
+        // mount one frame with the letters still showing, then flip to
+        // masked so the letter->dot transition actually animates instead
+        // of snapping straight to dots.
+        requestAnimationFrame(() => setMasked(true));
+    }
+
+    const charStyle = (revealedTransform: string, maskedTransform: string, isRevealedGlyph: boolean, delayMs: number): CSSProperties => ({
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "opacity 240ms ease, transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+        transitionDelay: `${delayMs}ms`,
+        opacity: (isRevealedGlyph ? !masked : masked) ? 1 : 0,
+        transform: masked ? maskedTransform : revealedTransform
+    });
+
+    return (
+        <div className="vc-token-input-wrap" style={{ position: "relative" }}>
+            <style>{`.vc-token-input-wrap input::selection { color: transparent; background: rgba(88, 101, 242, 0.4); }`}</style>
+            <TextInput
+                type="text"
+                value={value}
+                placeholder="Paste your session token here"
+                onChange={commit}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
+                style={{
+                    color: value ? "transparent" : undefined,
+                    caretColor: "var(--text-normal, #dcddde)"
+                }}
+            />
+            {value && (
+                <div style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "0 12px",
+                    pointerEvents: "none",
+                    overflow: "hidden",
+                    whiteSpace: "pre",
+                    
+                    
+                    
+                    fontFamily: "var(--font-code, Consolas, 'Courier New', monospace)",
+                    fontSize: "14px",
+                    lineHeight: 1,
+                    letterSpacing: 0
+                }}>
+                    {value.split("").map((ch, i) => {
+                        const delay = masked ? i * 16 : (value.length - 1 - i) * 16;
+                        return (
+                            <span key={i} style={{ position: "relative", display: "inline-block", width: "0.6em", height: "1em", flex: "0 0 auto" }}>
+                                <span style={charStyle("translateY(0) scale(1) rotate(0deg)", "translateY(-8px) scale(0.3) rotate(-20deg)", true, delay)}>{ch}</span>
+                                <span style={charStyle("translateY(8px) scale(0.3) rotate(20deg)", "translateY(0) scale(1) rotate(0deg)", false, delay)}>•</span>
+                            </span>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function RevokeTokenButton() {
+    const [busy, setBusy] = useState(false);
+    async function doRevoke() {
+        setBusy(true);
+        try {
+            await revokeSessionToken();
+        } finally {
+            setBusy(false);
+        }
+    }
+    return (
+        <Button
+            size={Button.Sizes.SMALL}
+            color={Button.Colors.RED}
+            disabled={busy || !settings.store.sessionToken}
+            onClick={doRevoke}
+        >
+            {busy ? "Revoking..." : "Revoke Your Token"}
+        </Button>
+    );
+}
+
 function BadgePreview() {
     const [, forceRerender] = useReducer((x: number) => x + 1, 0);
     const [background, setBackground] = useState("#1d1d1d");
@@ -1161,6 +1300,28 @@ function CustomBadgesTab() {
             <Forms.FormDivider style={{ margin: "20px 0" }} />
 
             {}
+            <Forms.FormTitle tag="h3">Account Verification</Forms.FormTitle>
+            <Forms.FormText type="description" style={{ marginBottom: 12 }}>
+                Prove you own this Discord account so the server accepts badge changes as coming from you.
+                No passwords or long-lived Discord tokens are ever stored - just a short-lived, revocable proof.
+            </Forms.FormText>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" }}>
+                <Button onClick={verifyDiscordAccount}>
+                    Verify Discord Account
+                </Button>
+                <RevokeTokenButton />
+            </div>
+            <Forms.FormTitle tag="h5" style={{ marginBottom: 4 }}>Session Token</Forms.FormTitle>
+            <Forms.FormText type="description" style={{ marginBottom: 6 }}>
+                Paste the token shown after verifying your account here.
+            </Forms.FormText>
+            <div style={{ marginBottom: 16 }}>
+                <SessionTokenInput />
+            </div>
+
+            <Forms.FormDivider style={{ margin: "20px 0" }} />
+
+            {}
             <Forms.FormTitle tag="h3">Edit Active Badge</Forms.FormTitle>
             <SettingField settingKey="apiBaseUrl" titleOverride="Api Base Url" forceUpdate={forceUpdate} />
             <SettingField settingKey="myBadgeImageUrl" titleOverride="My Badge Image Url" forceUpdate={forceUpdate} />
@@ -1211,11 +1372,7 @@ function CustomBadgesTab() {
                 Import a pack of badges from a raw GitHub URL, or export your current badges as a pack to share with others.
             </Forms.FormText>
             <SettingField settingKey="importPackUrl" titleOverride="Import Pack from URL" forceUpdate={forceUpdate} />
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-                <Button onClick={() => { importPackFromUrl().then(() => forceUpdate()); }}>Import Pack</Button>
-                <Button onClick={makePack} color={Button.Colors.PRIMARY}>Make Pack (Copy JSON)</Button>
-                <Button onClick={browsePacks} color={Button.Colors.PRIMARY}>Add More Packs</Button>
-            </div>
+            <BadgePacksButtonsRow forceUpdate={forceUpdate} />
 
             <Forms.FormDivider style={{ margin: "20px 0" }} />
 
@@ -1368,7 +1525,7 @@ export async function setMyBadge(badgeId: string, imageUrl: string, description:
     if (!me) return console.error("[CustomBadges] Not logged in?");
 
     try {
-        const res = await VencordNative.pluginHelpers.CustomBadges.setBadge(me.id, badgeId, imageUrl, description, getMyBadgeStyle(), settings.store.apiBaseUrl);
+        const res = await VencordNative.pluginHelpers.CustomBadges.setBadge(me.id, badgeId, imageUrl, description, getMyBadgeStyle(), settings.store.sessionToken, settings.store.apiBaseUrl);
         cache.delete(me.id);
         console.log("[CustomBadges] Badge set:", res);
     } catch (e) {
@@ -1398,7 +1555,7 @@ function loadBadgeFieldsIntoSettings(entry: BadgeEntry) {
     }
 }
 
-async function switchToBadge(id: string) {
+export async function switchToBadge(id: string) {
     const entry = findBadgeEntry(id);
     if (!entry) return;
 
@@ -1408,7 +1565,7 @@ async function switchToBadge(id: string) {
     const me = UserStore.getCurrentUser();
     if (!me) return;
     try {
-        await VencordNative.pluginHelpers.CustomBadges.setActiveBadge(me.id, id, settings.store.apiBaseUrl);
+        await VencordNative.pluginHelpers.CustomBadges.setActiveBadge(me.id, id, settings.store.sessionToken, settings.store.apiBaseUrl);
         cache.delete(me.id);
         Toasts.show({ id: Toasts.genId(), type: Toasts.Type.SUCCESS, message: "Switched active badge" });
     } catch (e) {
@@ -1446,7 +1603,7 @@ export function createNewBadgeSlot() {
     Toasts.show({ id: Toasts.genId(), type: Toasts.Type.SUCCESS, message: "New badge slot added - edit the fields above to customize it" });
 }
 
-async function deleteBadgeSlot(id: string) {
+export async function deleteBadgeSlot(id: string) {
     const list = getMyBadges();
     const remaining = list.filter(b => b.id !== id);
     setMyBadgesLocal(remaining);
@@ -1454,7 +1611,7 @@ async function deleteBadgeSlot(id: string) {
     const me = UserStore.getCurrentUser();
     if (me) {
         try {
-            await VencordNative.pluginHelpers.CustomBadges.deleteBadge(me.id, id, settings.store.apiBaseUrl);
+            await VencordNative.pluginHelpers.CustomBadges.deleteBadge(me.id, id, settings.store.sessionToken, settings.store.apiBaseUrl);
             cache.delete(me.id);
         } catch (e) {
             console.error("[CustomBadges] Failed to delete badge:", e);
@@ -1526,6 +1683,273 @@ function MyBadgesList() {
             ))}
         </div>
     );
+}
+
+const JSON_TOKEN_COLORS = {
+    key: "#9cdcfe",
+    string: "#ce9178",
+    number: "#b5cea8",
+    literal: "#569cd6",
+    punct: "#808080"
+};
+function renderJsonHighlighted(json: string): ReactNode[] {
+    const tokenRegex = /("(?:\\.|[^"\\])*"(\s*:)?)|(\btrue\b|\bfalse\b|\bnull\b)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|([{}[\],:])/g;
+    const nodes: ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    let key = 0;
+    while ((match = tokenRegex.exec(json)) !== null) {
+        if (match.index > lastIndex) {
+            nodes.push(json.slice(lastIndex, match.index));
+        }
+        const token = match[0];
+        let color = JSON_TOKEN_COLORS.punct;
+        if (match[1] !== undefined) {
+            color = match[2] ? JSON_TOKEN_COLORS.key : JSON_TOKEN_COLORS.string;
+        }
+        else if (match[3] !== undefined) {
+            color = JSON_TOKEN_COLORS.literal;
+        }
+        else if (match[4] !== undefined) {
+            color = JSON_TOKEN_COLORS.number;
+        }
+        nodes.push(<span key={key++} style={{ color }}>{token}</span>);
+        lastIndex = tokenRegex.lastIndex;
+    }
+    if (lastIndex < json.length)
+        nodes.push(json.slice(lastIndex));
+    return nodes;
+}
+let packGuidelinesShownThisSession = false;
+type PanelPhase = "entering" | "open" | "closing";
+function PackGuidelinesModal({ onClose }: {
+    onClose: () => void;
+}) {
+    const [phase, setPhase] = useState<PanelPhase>("entering");
+    useEffect(() => {
+        const raf = requestAnimationFrame(() => setPhase("open"));
+        return () => cancelAnimationFrame(raf);
+    }, []);
+    const CLOSE_ANIM_MS = 340;
+    function handleClose() {
+        if (phase === "closing")
+            return;
+        setPhase("closing");
+        setTimeout(onClose, CLOSE_ANIM_MS);
+    }
+    const panelCss = `
+        .vc-badgepack-panel {
+            position: fixed;
+            top: 50%;
+            left: 24px;
+            transform: translate(-120%, -50%);
+            width: 440px;
+            max-width: 88vw;
+            max-height: 82vh;
+            z-index: 9999;
+            background: var(--background-floating, #18191c);
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+            display: flex;
+            flex-direction: column;
+            padding: 26px 30px 30px;
+            color: var(--text-normal, #dcddde);
+            font-size: 14px;
+            line-height: 1.6;
+            overflow-y: auto;
+            opacity: 0;
+            transform-origin: center center;
+            pointer-events: auto;
+        }
+        .vc-badgepack-panel.vc-panel-open {
+            transform: translate(0, -50%);
+            opacity: 1;
+            transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1), opacity 320ms ease-out;
+        }
+        .vc-badgepack-panel.vc-panel-closing {
+            animation: vc-crt-off 340ms cubic-bezier(0.86, 0, 0.07, 1) forwards;
+        }
+        .vc-badgepack-panel.vc-panel-closing::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: #fff;
+            opacity: 0;
+            pointer-events: none;
+            animation: vc-crt-flash 340ms ease-in forwards;
+        }
+        @keyframes vc-crt-off {
+            0% { transform: translate(0, -50%) scaleY(1) scaleX(1); filter: brightness(1); }
+            45% { transform: translate(0, -50%) scaleY(0.015) scaleX(1); filter: brightness(2.2); }
+            70% { transform: translate(0, -50%) scaleY(0.015) scaleX(0.02); filter: brightness(2.6); }
+            100% { transform: translate(0, -50%) scaleY(0.015) scaleX(0.0001); filter: brightness(3); opacity: 0; }
+        }
+        @keyframes vc-crt-flash {
+            0% { opacity: 0; }
+            35% { opacity: 0.55; }
+            55% { opacity: 0.15; }
+            100% { opacity: 0; }
+        }
+        .vc-badgepack-guidelines-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #4a4a50 #1a1a1d;
+        }
+        .vc-badgepack-guidelines-scroll::-webkit-scrollbar {
+            width: 10px;
+        }
+        .vc-badgepack-guidelines-scroll::-webkit-scrollbar-track {
+            background: #1a1a1d;
+            border-radius: 8px;
+        }
+        .vc-badgepack-guidelines-scroll::-webkit-scrollbar-thumb {
+            background: #4a4a50;
+            border-radius: 8px;
+            border: 2px solid #1a1a1d;
+        }
+        .vc-badgepack-guidelines-scroll::-webkit-scrollbar-thumb:hover {
+            background: #5c5c63;
+        }
+        /* Hard overrides so nothing (inherited flex/height rules, Discord's own
+           element styles, etc.) can squash this down to the single collapsed
+           line with a scrollbar seen previously. */
+        .vc-badgepack-codeblock {
+            display: block !important;
+            position: static !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+            overflow-x: auto !important;
+            overflow-y: visible !important;
+            white-space: pre !important;
+            flex: none !important;
+            resize: none !important;
+        }
+    `;
+    const panelClassName = [
+        "vc-badgepack-panel",
+        "vc-badgepack-guidelines-scroll",
+        (phase === "open" || phase === "closing") ? "vc-panel-open" : "",
+        phase === "closing" ? "vc-panel-closing" : ""
+    ].filter(Boolean).join(" ");
+    const h2Style: CSSProperties = { fontSize: 18, fontWeight: 700, marginBottom: 16, color: "var(--header-primary, #fff)" };
+    const h3Style: CSSProperties = { fontSize: 15, fontWeight: 700, margin: "18px 0 6px", color: "var(--header-primary, #fff)" };
+    const codeBlockStyle: CSSProperties = {
+        background: "var(--background-secondary, #2f3136)",
+        borderRadius: 6, padding: "14px 16px",
+        fontFamily: "monospace", fontSize: 15,
+        lineHeight: 1.65,
+        whiteSpace: "pre", overflowX: "auto",
+        margin: "8px 0"
+    };
+    const inlineCodeStyle: CSSProperties = {
+        background: "var(--background-secondary, #2f3136)",
+        borderRadius: 4, padding: "1px 5px",
+        fontFamily: "monospace", fontSize: 13
+    };
+    const noteStyle: CSSProperties = {
+        background: "var(--background-secondary-alt, #292b2f)",
+        borderRadius: 6, padding: "8px 12px",
+        margin: "8px 0", borderLeft: "3px solid var(--text-muted, #72767d)"
+    };
+    const warnStyle: CSSProperties = { ...noteStyle, borderLeftColor: "#f0a500" };
+    const closeStyle: CSSProperties = {
+        position: "absolute", top: 14, right: 18,
+        background: "none", border: "none",
+        color: "var(--text-muted, #72767d)", fontSize: 20,
+        cursor: "pointer", lineHeight: 1,
+        zIndex: 1
+    };
+    return (<>
+            <style>{panelCss}</style>
+            <div className={panelClassName}>
+                <button style={closeStyle} onClick={handleClose}>✕</button>
+                <div style={h2Style}>📦 Badge Pack Sharing Guidelines</div>
+                <div>Before sharing a pack, make sure it meets these standards so everyone has a smooth experience importing it.</div>
+
+                <div style={h3Style}>Format</div>
+                <div>Your pack must be a valid JSON file hosted on <code style={inlineCodeStyle}>raw.githubusercontent.com</code> - no other hosts are accepted by the importer. The structure should look like this:</div>
+                <div className="vc-badgepack-codeblock" style={codeBlockStyle}>{renderJsonHighlighted(`{
+  "version": 1,
+  "badges": [
+    "base64encodedcode",
+    "base64encodedcode"
+  ]
+}`)}</div>
+                <div>Each entry in the <code style={inlineCodeStyle}>badges</code> array is a badge code generated by the <strong>Make Pack</strong> button in your dashboard.</div>
+
+                <div style={h3Style}>Pack Size</div>
+                <div style={noteStyle}>ⓘ The importer only loads the <strong>first 6 badges</strong> from any pack. The <strong>Make Pack</strong> button exports up to <strong>12 badges</strong> (your current plugin save limit). Technically packs can be as large as you want, but we recommend a minimum of <strong>6</strong> and a maximum of <strong>10–15</strong> for the best experience.</div>
+
+                <div style={h3Style}>Content Rules</div>
+                <div style={warnStyle}>⚠️ Packs that break these rules will be removed without warning.</div>
+                <ul style={{ margin: "6px 0 0 16px", padding: 0 }}>
+                    <li>Badges must use <strong>publicly accessible image URLs</strong> that won't die in a week (no Discord CDN links, no temp hosts)</li>
+                    <li>No NSFW, offensive, or hateful imagery</li>
+                    <li>No impersonation of other users, plugins, or brands</li>
+                </ul>
+
+                <div style={h3Style}>How to Submit</div>
+                <ol style={{ margin: "6px 0 0 16px", padding: 0 }}>
+                    <li>Generate your pack JSON using the <strong>Make Pack (Copy JSON)</strong> button</li>
+                    <li>Push it to the packs repo as <code style={inlineCodeStyle}>packs/your-pack-name.json</code> in <a href="https://github.com/ItzMeShadow999/Badges" target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-link, #00aff4)" }}>https://github.com/ItzMeShadow999/Badges</a></li>
+                    <li>Open a PR with a short description of the theme</li>
+                </ol>
+
+                <div style={h3Style}>Tips for a Good Pack</div>
+                <ul style={{ margin: "6px 0 0 16px", padding: 0 }}>
+                    <li>Use a clear, descriptive filename (<code style={inlineCodeStyle}>anime-icons.json</code>, not <code style={inlineCodeStyle}>pack1.json</code>)</li>
+                    <li>All badges in a pack should share a <strong>theme or aesthetic</strong> - random assortments are harder to browse</li>
+                    <li>Test your pack with <strong>Import Pack from URL</strong> before submitting to make sure every badge imports cleanly</li>
+                </ul>
+
+                <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
+                    <Button onClick={handleClose}>Close</Button>
+                </div>
+            </div>
+        </>);
+}
+function MakePackButton() {
+    const [showGuidelines, setShowGuidelines] = useState(false);
+    function handleClick() {
+        makePack();
+        if (!packGuidelinesShownThisSession) {
+            packGuidelinesShownThisSession = true;
+            setShowGuidelines(true);
+        }
+    }
+    return (<>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <Button onClick={handleClick} color={Button.Colors.PRIMARY}>Make Pack (Copy JSON)</Button>
+                <Button onClick={() => setShowGuidelines(true)} look={Button.Looks.LINK} size={Button.Sizes.SMALL}>
+                    View Publish Guide
+                </Button>
+            </div>
+            {showGuidelines && <PackGuidelinesModal onClose={() => setShowGuidelines(false)}/>}
+        </>);
+}
+function BadgePacksButtonsRow({ forceUpdate }: {
+    forceUpdate: () => void;
+}) {
+    const [showGuidelines, setShowGuidelines] = useState(false);
+    function handleMakePackClick() {
+        makePack();
+        if (!packGuidelinesShownThisSession) {
+            packGuidelinesShownThisSession = true;
+            setShowGuidelines(true);
+        }
+    }
+    return (<>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
+                <Button onClick={() => { importPackFromUrl().then(() => forceUpdate()); }}>Import Pack</Button>
+                <Button onClick={handleMakePackClick} color={Button.Colors.PRIMARY}>Make Pack (Copy JSON)</Button>
+                <Button onClick={browsePacks} color={Button.Colors.PRIMARY}>Add More Packs</Button>
+                <Button onClick={() => setShowGuidelines(true)} look={Button.Looks.LINK} size={Button.Sizes.SMALL}>
+                    View Publish Guide
+                </Button>
+            </div>
+            {showGuidelines && <PackGuidelinesModal onClose={() => setShowGuidelines(false)}/>}
+        </>);
 }
 
 function packUrlLooksValid(url: string): boolean {
@@ -2284,7 +2708,11 @@ export default definePlugin({
             importPackFromUrl,
             makePack,
             browsePacks,
-            onBadgeModeChange
+            onBadgeModeChange,
+            verifyAccount: verifyDiscordAccount,
+            revokeSessionToken,
+            switchToBadge,
+            deleteBadgeSlot
         });
 
         const handleDashboardRoute = () => {
