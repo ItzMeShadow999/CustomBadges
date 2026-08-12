@@ -144,6 +144,29 @@ const settings = definePluginSettings({
         description: "Worker URL used to fetch/set badges. WARNING: this is a shared network, if you change this, you won't see other people's badges and they won't see yours, unless everyone points at the same URL. Only change this if you're self-hosting your own separate instance.",
         default: "https://custom-badges.shadow-164.workers.dev"
     },
+    verifyAccount: {
+        type: OptionType.COMPONENT,
+        description: "Opens your browser to confirm you own this Discord account via Discord OAuth (identify scope only - no email, no guilds). Required once before badge changes (set/switch/delete) will be accepted by the server.",
+        component: () => (
+            <Button onClick={verifyDiscordAccount}>
+                Verify Discord Account
+            </Button>
+        )
+    },
+    sessionToken: {
+        type: OptionType.COMPONENT,
+        description: "Paste the session token shown after verifying your account here. Stored locally and sent as proof of identity on badge writes - never share it with anyone else.",
+        component: () => (
+            <SessionTokenInput />
+        )
+    },
+    revokeToken: {
+        type: OptionType.COMPONENT,
+        description: "Revoke your current session token immediately. You'll need to verify again before publishing further badge changes.",
+        component: () => (
+            <RevokeTokenButton />
+        )
+    },
     myBadgeImageUrl: {
         type: OptionType.STRING,
         description: "Your badge image URL. Must be hosted on one of: i.imgur.com, i.ibb.co, i.pinimg.com, files.catbox.moe, cdn.discordapp.com, media.discordapp.net. Other hosts get silently blocked by Discord and your badge won't load.",
@@ -684,6 +707,18 @@ function CustomBadgesTab() {
             </Forms.FormText>
 
             
+            <Forms.FormTitle tag="h3">Account Verification</Forms.FormTitle>
+            <Forms.FormText type="description" style={{ marginBottom: 12 }}>
+                Prove you own this Discord account so the server accepts badge changes as coming from you.
+                No passwords or long-lived Discord tokens are ever stored - just a short-lived, revocable proof.
+            </Forms.FormText>
+            <SettingField settingKey="verifyAccount" titleOverride="Verify Discord Account" forceUpdate={forceUpdate}/>
+            <SettingField settingKey="sessionToken" titleOverride="Session Token" forceUpdate={forceUpdate}/>
+            <SettingField settingKey="revokeToken" titleOverride="Revoke Token" forceUpdate={forceUpdate}/>
+
+            <Forms.FormDivider style={{ margin: "20px 0" }}/>
+
+            
             <Forms.FormTitle tag="h3">Edit Active Badge</Forms.FormTitle>
             <SettingField settingKey="apiBaseUrl" titleOverride="Api Base Url" forceUpdate={forceUpdate}/>
             <SettingField settingKey="myBadgeImageUrl" titleOverride="My Badge Image Url" forceUpdate={forceUpdate}/>
@@ -856,17 +891,145 @@ async function syncMyBadgesFromServer() {
         }
     }
 }
+export function verifyDiscordAccount() {
+    window.open(
+        `${settings.store.apiBaseUrl || "https://custom-badges.shadow-164.workers.dev"}/auth/start`,
+        "_blank", "noopener,noreferrer"
+    );
+}
+
+export async function revokeSessionToken() {
+    try {
+        await VencordNative.pluginHelpers.CustomBadges.revokeOwnToken(settings.store.sessionToken, settings.store.apiBaseUrl);
+        settings.store.sessionToken = "";
+        Toasts.show({ id: Toasts.genId(), type: Toasts.Type.SUCCESS, message: "Token revoked - re-verify to publish badge changes again" });
+    } catch (e) {
+        console.error("[CustomBadges] Failed to revoke token:", e);
+        Toasts.show({ id: Toasts.genId(), type: Toasts.Type.FAILURE, message: "Couldn't revoke token - check your connection" });
+    }
+}
+
+function SessionTokenInput() {
+    const [value, setValue] = useState(settings.store.sessionToken || "");
+    const [focused, setFocused] = useState(false);
+    const [masked, setMasked] = useState(!!settings.store.sessionToken);
+
+    function commit(v: string) {
+        setValue(v);
+        settings.store.sessionToken = v;
+    }
+
+    function handleFocus() {
+        setFocused(true);
+        setMasked(false);
+    }
+
+    function handleBlur() {
+        setFocused(false);
+        if (!value) return;
+        // mount one frame with the letters still showing, then flip to
+        // masked so the letter->dot transition actually animates instead
+        // of snapping straight to dots.
+        requestAnimationFrame(() => setMasked(true));
+    }
+
+    const charStyle = (revealedTransform: string, maskedTransform: string, isRevealedGlyph: boolean, delayMs: number): CSSProperties => ({
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "opacity 240ms ease, transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+        transitionDelay: `${delayMs}ms`,
+        opacity: (isRevealedGlyph ? !masked : masked) ? 1 : 0,
+        transform: masked ? maskedTransform : revealedTransform
+    });
+
+    return (
+        <div className="vc-token-input-wrap" style={{ position: "relative" }}>
+            <style>{`.vc-token-input-wrap input::selection { color: transparent; background: rgba(88, 101, 242, 0.4); }`}</style>
+            <TextInput
+                type="text"
+                value={value}
+                placeholder="Paste your session token here"
+                onChange={commit}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
+                style={{
+                    color: value ? "transparent" : undefined,
+                    caretColor: "var(--text-normal, #dcddde)"
+                }}
+            />
+            {value && (
+                <div style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "0 12px",
+                    pointerEvents: "none",
+                    overflow: "hidden",
+                    whiteSpace: "pre",
+                    fontFamily: "var(--font-code, Consolas, 'Courier New', monospace)",
+                    fontSize: "14px",
+                    lineHeight: 1,
+                    letterSpacing: 0
+                }}>
+                    {value.split("").map((ch, i) => {
+                        const delay = masked ? i * 16 : (value.length - 1 - i) * 16;
+                        return (
+                            <span key={i} style={{ position: "relative", display: "inline-block", width: "0.6em", height: "1em", flex: "0 0 auto" }}>
+                                <span style={charStyle("translateY(0) scale(1) rotate(0deg)", "translateY(-8px) scale(0.3) rotate(-20deg)", true, delay)}>{ch}</span>
+                                <span style={charStyle("translateY(8px) scale(0.3) rotate(20deg)", "translateY(0) scale(1) rotate(0deg)", false, delay)}>•</span>
+                            </span>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function RevokeTokenButton() {
+    const [busy, setBusy] = useState(false);
+    async function doRevoke() {
+        setBusy(true);
+        try {
+            await revokeSessionToken();
+        } finally {
+            setBusy(false);
+        }
+    }
+    return (
+        <Button
+            size={Button.Sizes.SMALL}
+            color={Button.Colors.RED}
+            disabled={busy || !settings.store.sessionToken}
+            onClick={doRevoke}
+        >
+            {busy ? "Revoking..." : "Revoke Your Token"}
+        </Button>
+    );
+}
+
+function isNotVerifiedError(e: unknown): boolean {
+    const message = e instanceof Error ? e.message : String(e);
+    return message.startsWith("NOT_VERIFIED");
+}
+
 export async function setMyBadge(badgeId: string, imageUrl: string, description: string) {
     const me = UserStore.getCurrentUser();
     if (!me)
         return console.error("[CustomBadges] Not logged in?");
     try {
-        const res = await VencordNative.pluginHelpers.CustomBadges.setBadge(me.id, badgeId, imageUrl, description, getMyBadgeStyle(), settings.store.apiBaseUrl);
+        const res = await VencordNative.pluginHelpers.CustomBadges.setBadge(me.id, badgeId, imageUrl, description, getMyBadgeStyle(), settings.store.sessionToken, settings.store.apiBaseUrl);
         cache.delete(me.id);
         console.log("[CustomBadges] Badge set:", res);
     }
     catch (e) {
         console.error("[CustomBadges] Failed to set badge:", e);
+        if (isNotVerifiedError(e))
+            Toasts.show({ id: Toasts.genId(), type: Toasts.Type.FAILURE, message: "Verify your Discord account first (see the \"Verify Discord Account\" button in settings)" });
     }
 }
 function loadBadgeFieldsIntoSettings(entry: BadgeEntry) {
@@ -896,13 +1059,17 @@ async function switchToBadge(id: string) {
     if (!me)
         return;
     try {
-        await VencordNative.pluginHelpers.CustomBadges.setActiveBadge(me.id, id, settings.store.apiBaseUrl);
+        await VencordNative.pluginHelpers.CustomBadges.setActiveBadge(me.id, id, settings.store.sessionToken, settings.store.apiBaseUrl);
         cache.delete(me.id);
         Toasts.show({ id: Toasts.genId(), type: Toasts.Type.SUCCESS, message: "Switched active badge" });
     }
     catch (e) {
         console.error("[CustomBadges] Failed to switch active badge:", e);
-        Toasts.show({ id: Toasts.genId(), type: Toasts.Type.FAILURE, message: "Couldn't switch badge - check your connection" });
+        Toasts.show({
+            id: Toasts.genId(), type: Toasts.Type.FAILURE, message: isNotVerifiedError(e)
+                ? "Verify your Discord account first (see the \"Verify Discord Account\" button in settings)"
+                : "Couldn't switch badge - check your connection"
+        });
     }
 }
 function createNewBadgeSlot() {
@@ -933,11 +1100,13 @@ async function deleteBadgeSlot(id: string) {
     const me = UserStore.getCurrentUser();
     if (me) {
         try {
-            await VencordNative.pluginHelpers.CustomBadges.deleteBadge(me.id, id, settings.store.apiBaseUrl);
+            await VencordNative.pluginHelpers.CustomBadges.deleteBadge(me.id, id, settings.store.sessionToken, settings.store.apiBaseUrl);
             cache.delete(me.id);
         }
         catch (e) {
             console.error("[CustomBadges] Failed to delete badge:", e);
+            if (isNotVerifiedError(e))
+                Toasts.show({ id: Toasts.genId(), type: Toasts.Type.FAILURE, message: "Verify your Discord account first (see the \"Verify Discord Account\" button in settings)" });
         }
     }
     if (getActiveBadgeId() === id) {
