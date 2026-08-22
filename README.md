@@ -2,7 +2,7 @@
 
 <img src="https://vencord.dev/assets/logo.png" alt="Vencord logo" width="90" />
 
-# Custom Badges
+# Custom Badges — Vencord
 
 [![Vencord Plugin](https://img.shields.io/badge/Vencord-Plugin-FFB6D9?style=for-the-badge&logo=discord&logoColor=6B2C5F&labelColor=FFD6EC)](https://github.com/Vendicated/Vencord)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-A9C9FF?style=for-the-badge&labelColor=D6E4FF&logoColor=2B3A67)](https://www.gnu.org/licenses/gpl-3.0.html)
