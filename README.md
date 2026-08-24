@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://vencord.dev/assets/logo.png" alt="Vencord logo" width="90" />
+<img src="https://vencord.dev/assets/logo.png" alt="Vencord logo" width="200" />
 
 # Custom Badges — Vencord
 
