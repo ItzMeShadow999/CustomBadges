@@ -78,6 +78,48 @@ Open **Vencord Settings → Plugins → CustomBadges → Settings**, click **Ver
 
 </details>
 
+<details>
+<summary><img src="https://files.catbox.moe/4dplyc.png" width="30" height="30" align="absmiddle" /> $\Huge{\color{#FFB6C1}\textsf{Installation — Equicord (click to expand)}}$</summary>
+Equicord is Vencord-based, so CustomBadges installs the exact same way — just point the clone at Equicord's repo instead of Vencord's.
+
+### 1. Clone the Equicord repo & pnpm install
+```
+git clone https://github.com/Equicord/Equicord
+```
+```
+cd "YOURPATHHERE"
+```
+```
+pnpm install
+```
+ 
+### 2. Locate your Equicord `userplugins` folder in `\Equicord\src`
+ - If the folder doesn't exist, create it.
+### 2. Create a new folder inside `userplugins` called `customBadges`
+ 
+Copy every file from this project into it, keeping the same structure:
+ 
+```
+userplugins/customBadges/
+├── index.tsx
+└── native.ts
+```
+ 
+### 3. Rebuild Equicord
+ 
+- Source build: run `pnpm build` (or `npm run build`), then `pnpm inject` if you haven't already injected Equicord into your Discord client.
+- Installer-based build with plugin auto-detection: just restart Discord after copying the files in.
+### 4. Enable the plugin
+ 
+Open Discord → Equicord Settings → Plugins, find **CustomBadges**, and enable it.
+ 
+### 5. Restart Discord
+ 
+Ctrl/Cmd+R
+ 
+</details>
+
+
 ---
 
 <img src="https://raw.githubusercontent.com/ItzMeShadow999/My-assets/main/usage-header.svg" alt="Usage" width="100%" />
