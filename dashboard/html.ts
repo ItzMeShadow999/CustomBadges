@@ -72,9 +72,9 @@ export function dashboardHtml(presetLabels: string[] = []): string {
         
         box: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L20 6.5V15.5L12 20L4 15.5V6.5L12 2Z"/><path d="M12 2V11M12 11L20 6.5M12 11L4 6.5"/><path d="M14.5 5L14.5 9L17.5 7.5L17.5 3.7Z"/><path d="M6 13.2l3.4 1.7M6 15l2.6 1.3"/></svg>`,
         check: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+        clock: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>`,
         trash: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>`,
-        plus: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
-        shield: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><polyline points="9 12 11 14 15 10"/></svg>`
+        plus: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`
     };
 
     return `
@@ -304,400 +304,11 @@ export function dashboardHtml(presetLabels: string[] = []): string {
                 color: #ff5c60;
             }
 
-            #ub-dashboard-settings .ub-btn-danger-solid {
-                background: var(--ub-danger);
-                border-color: var(--ub-danger);
-                color: #ffffff;
-            }
-
-            #ub-dashboard-settings .ub-btn-danger-solid:hover {
-                background: #c42f33;
-                border-color: #c42f33;
-                color: #ffffff;
-            }
-
-            #ub-dashboard-settings .ub-btn-danger-solid:disabled {
-                opacity: 0.5;
-                cursor: default;
-            }
-
             #ub-dashboard-settings .ub-btn-row {
                 display: flex;
                 flex-wrap: wrap;
-                align-items: center;
                 gap: 8px;
                 margin-bottom: 16px;
-            }
-
-            #ub-dashboard-settings .ub-btn-link {
-                appearance: none;
-                background: none;
-                border: none;
-                padding: 0 4px;
-                min-height: 38px;
-                font-size: 13px;
-                font-weight: 600;
-                color: var(--ub-accent-2);
-                cursor: pointer;
-                transition: color 120ms ease;
-            }
-
-            #ub-dashboard-settings .ub-btn-link:hover {
-                color: var(--ub-accent);
-                text-decoration: underline;
-            }
-
-            #ub-dashboard-settings .ub-btn-link:focus-visible {
-                outline: none;
-                text-decoration: underline;
-            }
-
-            
-            #ub-dashboard-settings .ub-token-wrap {
-                position: relative;
-            }
-
-            #ub-dashboard-settings .ub-token-wrap input#ub-session-token::selection {
-                color: transparent;
-                background: var(--ub-accent-soft);
-            }
-
-            #ub-dashboard-settings .ub-token-wrap input#ub-session-token {
-                color: transparent;
-                caret-color: var(--ub-text);
-                
-                height: 40px;
-                padding-top: 0;
-                padding-bottom: 0;
-                
-                font-family: var(--font-code, Consolas, "Courier New", monospace);
-                font-size: 14px;
-                letter-spacing: 0;
-            }
-
-            #ub-dashboard-settings .ub-token-wrap input#ub-session-token.ub-token-empty {
-                color: var(--ub-text-faint);
-            }
-
-            #ub-dashboard-settings .ub-token-overlay {
-                position: absolute;
-                inset: 0;
-                height: 40px;
-                
-                border: 1px solid transparent;
-                padding: 0 12px;
-                pointer-events: none;
-                overflow: hidden;
-                font-family: var(--font-code, Consolas, "Courier New", monospace);
-                font-size: 14px;
-                line-height: 1;
-                letter-spacing: 0;
-            }
-
-            #ub-dashboard-settings .ub-token-overlay-inner {
-                display: block;
-                height: 40px;
-                line-height: 40px;
-                white-space: nowrap;
-                overflow-wrap: normal;
-                word-break: keep-all;
-                word-wrap: normal;
-                
-            }
-
-            #ub-dashboard-settings .ub-token-overlay,
-            #ub-dashboard-settings .ub-token-overlay * {
-                font-family: var(--font-code, Consolas, "Courier New", monospace);
-            }
-
-            #ub-dashboard-settings .ub-token-char {
-                position: relative;
-                display: inline-block;
-                vertical-align: middle;
-                white-space: nowrap;
-                overflow-wrap: normal;
-                word-break: keep-all;
-                word-wrap: normal;
-                
-                width: 1ch;
-                height: 1em;
-                line-height: 1;
-                text-align: center;
-            }
-
-            #ub-dashboard-settings .ub-token-glyph {
-                position: absolute;
-                inset: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                opacity: 0;
-                transition: opacity 240ms ease, transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
-            }
-
-            #ub-dashboard-settings .ub-token-glyph-letter {
-                transform: translateY(-8px) scale(0.3) rotate(-20deg);
-            }
-
-            #ub-dashboard-settings .ub-token-glyph-dot {
-                transform: translateY(8px) scale(0.3) rotate(20deg);
-            }
-
-            #ub-dashboard-settings .ub-token-glyph.ub-token-shown {
-                opacity: 1;
-                transform: translateY(0) scale(1) rotate(0deg);
-            }
-
-            
-            #ub-guidelines-backdrop {
-                display: none;
-                position: fixed;
-                inset: 0;
-                z-index: 9998;
-                background: rgba(0, 0, 0, 0.6);
-                backdrop-filter: blur(3px);
-                -webkit-backdrop-filter: blur(3px);
-                opacity: 0;
-                transition: opacity 260ms ease;
-                pointer-events: none;
-            }
-
-            #ub-guidelines-backdrop.ub-backdrop-open {
-                display: block;
-                opacity: 1;
-                pointer-events: auto;
-            }
-
-            
-            
-            .ub-guidelines-panel {
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%) scale(0.94);
-                width: 500px;
-                max-width: 92vw;
-                max-height: 84vh;
-                z-index: 9999;
-                background: #111214;
-                border: 1px solid rgba(255,255,255,0.10);
-                border-radius: 14px;
-                box-shadow:
-                    0 0 0 1px rgba(255,255,255,0.04),
-                    0 8px 16px rgba(0,0,0,0.4),
-                    0 24px 56px rgba(0,0,0,0.7);
-                display: flex;
-                flex-direction: column;
-                padding: 28px 32px 32px;
-                color: #F2F3F5;
-                font-size: 14px;
-                font-family: "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-                line-height: 1.6;
-                overflow-y: auto;
-                opacity: 0;
-                transform-origin: center center;
-                pointer-events: none;
-                scrollbar-width: thin;
-                scrollbar-color: #4a4a50 #1a1a1d;
-                box-sizing: border-box;
-            }
-
-            .ub-guidelines-panel * {
-                box-sizing: border-box;
-                font-family: "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-            }
-
-            .ub-guidelines-panel::-webkit-scrollbar {
-                width: 10px;
-            }
-
-            .ub-guidelines-panel::-webkit-scrollbar-track {
-                background: #1a1a1d;
-                border-radius: 8px;
-            }
-
-            .ub-guidelines-panel::-webkit-scrollbar-thumb {
-                background: #4a4a50;
-                border-radius: 8px;
-                border: 2px solid #1a1a1d;
-            }
-
-            .ub-guidelines-panel::-webkit-scrollbar-thumb:hover {
-                background: #5c5c63;
-            }
-
-            .ub-guidelines-panel.ub-panel-open {
-                transform: translate(-50%, -50%) scale(1);
-                opacity: 1;
-                pointer-events: auto;
-                transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1), opacity 260ms ease-out;
-            }
-
-            .ub-guidelines-panel.ub-panel-closing {
-                pointer-events: none;
-                animation: ub-crt-off 340ms cubic-bezier(0.86, 0, 0.07, 1) forwards;
-            }
-
-            .ub-guidelines-panel.ub-panel-closing::after {
-                content: "";
-                position: absolute;
-                inset: 0;
-                background: #fff;
-                opacity: 0;
-                pointer-events: none;
-                animation: ub-crt-flash 340ms ease-in forwards;
-            }
-
-            @keyframes ub-crt-off {
-                0% { transform: translate(-50%, -50%) scaleY(1) scaleX(1); filter: brightness(1); opacity: 1; }
-                45% { transform: translate(-50%, -50%) scaleY(0.015) scaleX(1); filter: brightness(2.2); opacity: 1; }
-                70% { transform: translate(-50%, -50%) scaleY(0.015) scaleX(0.02); filter: brightness(2.6); opacity: 0.6; }
-                100% { transform: translate(-50%, -50%) scaleY(0.015) scaleX(0.0001); filter: brightness(3); opacity: 0; }
-            }
-
-            @keyframes ub-crt-flash {
-                0% { opacity: 0; }
-                35% { opacity: 0.55; }
-                55% { opacity: 0.15; }
-                100% { opacity: 0; }
-            }
-
-            .ub-guidelines-close {
-                position: absolute;
-                top: 14px;
-                right: 18px;
-                background: none;
-                border: none;
-                color: #949BA4;
-                font-size: 20px;
-                cursor: pointer;
-                line-height: 1;
-                z-index: 1;
-            }
-
-            .ub-guidelines-close:hover {
-                color: #F2F3F5;
-            }
-
-            .ub-guidelines-h2 {
-                font-size: 20px;
-                font-weight: 800;
-                margin-bottom: 10px;
-                color: #F2F3F5;
-                letter-spacing: -0.01em;
-                line-height: 1.3;
-            }
-
-            .ub-guidelines-h3 {
-                font-size: 15px;
-                font-weight: 700;
-                margin: 18px 0 6px;
-                color: #F2F3F5;
-            }
-
-            .ub-guidelines-code {
-                display: block;
-                background: #0a0a0a;
-                border: 1px solid rgba(255,255,255,0.08);
-                border-radius: 6px;
-                padding: 14px 16px;
-                font-family: "Consolas", "Menlo", "Courier New", monospace;
-                font-size: 13px;
-                line-height: 1.65;
-                white-space: pre;
-                overflow-x: auto;
-                margin: 8px 0;
-            }
-
-            .ub-guidelines-code .k { color: #9cdcfe; }
-            .ub-guidelines-code .s { color: #ce9178; }
-            .ub-guidelines-code .n { color: #b5cea8; }
-            .ub-guidelines-code .p { color: #808080; }
-
-            .ub-guidelines-inline-code {
-                background: #0a0a0a;
-                border: 1px solid rgba(255,255,255,0.08);
-                border-radius: 4px;
-                padding: 1px 5px;
-                font-family: "Consolas", "Menlo", "Courier New", monospace;
-                font-size: 12px;
-                color: #ce9178;
-            }
-
-            .ub-guidelines-note {
-                background: #0f0f0f;
-                border-radius: 6px;
-                padding: 8px 12px;
-                margin: 8px 0;
-                border-left: 3px solid #949BA4;
-                color: #DBDEE1;
-                font-size: 13px;
-            }
-
-            .ub-guidelines-warn {
-                background: #0f0f0f;
-                border-radius: 6px;
-                padding: 8px 12px;
-                margin: 8px 0;
-                border-left: 3px solid #F0B232;
-                color: #DBDEE1;
-                font-size: 13px;
-            }
-
-            .ub-guidelines-panel ul,
-            .ub-guidelines-panel ol {
-                margin: 6px 0 0 18px;
-                padding: 0;
-                color: #DBDEE1;
-                font-size: 13.5px;
-            }
-
-            .ub-guidelines-panel li {
-                margin-bottom: 4px;
-            }
-
-            .ub-guidelines-panel a {
-                color: #7289DA;
-                text-decoration: none;
-            }
-
-            .ub-guidelines-panel a:hover {
-                text-decoration: underline;
-            }
-
-            .ub-guidelines-panel strong {
-                color: #F2F3F5;
-                font-weight: 700;
-            }
-
-            .ub-guidelines-panel .ub-btn {
-                appearance: none;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-                border-radius: 6px;
-                padding: 0 16px;
-                min-height: 38px;
-                font-size: 14px;
-                font-weight: 600;
-                cursor: pointer;
-                transition: background-color 120ms ease, transform 80ms ease;
-            }
-
-            .ub-guidelines-panel .ub-btn-primary {
-                background: #5865F2;
-                border: 1px solid #5865F2;
-                color: #ffffff;
-            }
-
-            .ub-guidelines-panel .ub-btn-primary:hover {
-                background: #4752C4;
-                border-color: #4752C4;
-            }
-
-            .ub-guidelines-panel .ub-btn-primary:active {
-                transform: scale(0.97);
             }
 
             #ub-dashboard-settings .ub-preview-empty {
@@ -768,7 +379,7 @@ export function dashboardHtml(presetLabels: string[] = []): string {
                 display: flex;
                 align-items: center;
                 gap: 12px;
-                padding: 10px 14px;
+                padding: 10px 12px;
                 background: var(--ub-bg-input);
                 border: 1px solid var(--ub-border);
                 border-radius: var(--ub-radius-sm);
@@ -779,99 +390,6 @@ export function dashboardHtml(presetLabels: string[] = []): string {
             #ub-dashboard-settings .ub-badge-row:hover {
                 background: var(--ub-bg-input-hover);
                 border-color: var(--ub-border-strong);
-            }
-
-            #ub-dashboard-settings .ub-badge-row.ub-badge-active {
-                background: rgba(88, 101, 242, 0.10);
-                border-color: rgba(88, 101, 242, 0.45);
-                box-shadow: inset 0 0 0 1px rgba(88, 101, 242, 0.15);
-            }
-
-            #ub-dashboard-settings .ub-badge-thumb {
-                width: 28px;
-                height: 28px;
-                border-radius: 50%;
-                object-fit: cover;
-                flex-shrink: 0;
-                background: rgba(255,255,255,0.06);
-                border: 1px solid var(--ub-border-strong);
-            }
-
-            #ub-dashboard-settings .ub-badge-row-name {
-                flex: 1;
-                font-size: 14px;
-                font-weight: 500;
-                color: var(--ub-text);
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-
-            #ub-dashboard-settings .ub-badge-row-name .ub-badge-active-tag {
-                font-size: 12px;
-                font-weight: 600;
-                color: var(--ub-text-muted);
-                margin-left: 6px;
-            }
-
-            #ub-dashboard-settings .ub-badge-row-actions {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                flex-shrink: 0;
-            }
-
-            #ub-dashboard-settings .ub-badge-use-btn {
-                appearance: none;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: var(--ub-radius-sm);
-                padding: 0 14px;
-                min-height: 32px;
-                font-size: 13px;
-                font-weight: 600;
-                cursor: pointer;
-                background: var(--ub-accent);
-                border: 1px solid var(--ub-accent);
-                color: #ffffff;
-                transition: background-color 120ms ease, border-color 120ms ease, transform 80ms ease;
-            }
-            #ub-dashboard-settings .ub-badge-use-btn:hover {
-                background: var(--ub-accent-hover);
-                border-color: var(--ub-accent-hover);
-            }
-            #ub-dashboard-settings .ub-badge-use-btn:active { transform: scale(0.96); }
-
-            #ub-dashboard-settings .ub-badge-delete-btn {
-                appearance: none;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: var(--ub-radius-sm);
-                padding: 0 14px;
-                min-height: 32px;
-                font-size: 13px;
-                font-weight: 600;
-                cursor: pointer;
-                background: var(--ub-danger);
-                border: 1px solid var(--ub-danger);
-                color: #ffffff;
-                transition: background-color 120ms ease, border-color 120ms ease, transform 80ms ease;
-            }
-            #ub-dashboard-settings .ub-badge-delete-btn:hover {
-                background: #c42f33;
-                border-color: #c42f33;
-            }
-            #ub-dashboard-settings .ub-badge-delete-btn:active { transform: scale(0.96); }
-
-            #ub-dashboard-settings #ub-my-badges-list:empty::after {
-                content: "No saved badges yet";
-                font-size: 13px;
-                color: var(--ub-text-faint);
-                font-style: italic;
-                display: block;
-                padding: 4px 0 10px;
             }
 
             #ub-dashboard-settings .ub-divider {
@@ -1202,80 +720,6 @@ export function dashboardHtml(presetLabels: string[] = []): string {
                 pointer-events: none;
             }
 
-            #ub-dashboard-settings .ub-switch-row {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 16px;
-                padding: 10px 0;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            }
-
-            #ub-dashboard-settings .ub-switch-row:last-child {
-                border-bottom: none;
-            }
-
-            #ub-dashboard-settings .ub-switch-row.ub-disabled {
-                opacity: 0.4;
-                pointer-events: none;
-            }
-
-            #ub-dashboard-settings .ub-switch-copy {
-                flex: 1;
-            }
-
-            #ub-dashboard-settings .ub-switch-label {
-                font-size: 14px;
-                font-weight: 600;
-                color: var(--ub-text);
-                margin-bottom: 2px;
-            }
-
-            #ub-dashboard-settings .ub-switch-desc {
-                font-size: 12px;
-                line-height: 1.4;
-                color: var(--ub-text-faint);
-            }
-
-            #ub-dashboard-settings .ub-switch {
-                position: relative;
-                flex-shrink: 0;
-                width: 40px;
-                height: 24px;
-                border-radius: 999px;
-                border: none;
-                background: rgba(255, 255, 255, 0.14);
-                cursor: pointer;
-                padding: 0;
-                transition: background 200ms ease;
-            }
-
-            #ub-dashboard-settings .ub-switch::after {
-                content: "";
-                position: absolute;
-                top: 3px;
-                left: 3px;
-                width: 18px;
-                height: 18px;
-                border-radius: 50%;
-                background: #ffffff;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-                transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
-            }
-
-            #ub-dashboard-settings .ub-switch.on {
-                background: var(--ub-accent);
-            }
-
-            #ub-dashboard-settings .ub-switch.on::after {
-                transform: translateX(16px);
-            }
-
-            #ub-dashboard-settings .ub-switch:disabled {
-                opacity: 0.4;
-                cursor: not-allowed;
-            }
-
             #ub-dashboard-settings .ub-value-pill {
                 display: inline-block;
                 margin-left: 8px;
@@ -1344,24 +788,9 @@ export function dashboardHtml(presetLabels: string[] = []): string {
                 background: rgba(255, 255, 255, 0.18);
             }
 
-            /* Discord's own settings classes (contentSection_b6bcee / content_b6bcee)
-               are built to sit centered next to a nav sidebar column. We don't render
-               that sidebar, so their inherited centering was leaving a large empty
-               gap on the left (and right) of the dashboard cards. Force it flush-left. */
-            #ub-dashboard-content .contentSection_b6bcee {
-                display: flex !important;
-                justify-content: flex-start !important;
-                width: 100%;
-            }
-
-            #ub-dashboard-content .content_b6bcee {
-                margin: 0 !important;
-                width: 100%;
-            }
-
         </style>
 
-        <div class="scroller__23746 thin_d125d2 scrollerBase_d125d2" dir="ltr" style="overflow: hidden scroll; flex: 1 1 auto; min-height: 0; padding: 24px; background-color: #000000; font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+        <div class="scroller__23746 thin_d125d2 scrollerBase_d125d2" dir="ltr" style="overflow: hidden scroll; padding: 24px; background-color: #000000; font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;">
             <section class="contentSection_b6bcee">
                 <div class="content_b6bcee" style="max-width: 680px;">
                     <h2 id="ub-page-heading" class="display-lg_cf4812 ub-gradient-text" data-text-variant="display-lg" style="margin-bottom: 6px; font-weight: 800; font-size: 48px; letter-spacing: -0.02em; white-space: nowrap; line-height: 1.1;">
@@ -1396,24 +825,26 @@ export function dashboardHtml(presetLabels: string[] = []): string {
                             </div>
                         </div>
 
-                        <div class="ub-section">
+                        <div class="ub-section" id="ub-writebudget-section">
                             <div class="ub-section-head">
-                                <div class="ub-section-icon">${icon.shield}</div>
-                                <div class="ub-eyebrow">Account Verification</div>
+                                <div class="ub-section-icon">${icon.clock}</div>
+                                <div class="ub-eyebrow">Write Budget</div>
                             </div>
-                            <p class="ub-hint">
-                                Prove you own this Discord account so the server accepts badge changes as coming from you. No passwords or long-lived Discord tokens are ever stored - just a short-lived, revocable proof.
-                            </p>
-                            <div class="ub-btn-row">
-                                <button type="button" id="ub-verify-account" class="ub-btn ub-btn-primary">Verify Discord Account</button>
-                                <button type="button" id="ub-revoke-token" class="ub-btn ub-btn-danger-solid" disabled>Revoke Your Token</button>
+                            <div id="ub-writebudget-unverified" class="ub-field" style="margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                                <p class="ub-hint" style="margin: 0;">Verify your Discord account to see your write budget.</p>
+                                <button id="ub-writebudget-refresh-unverified" class="ub-btn" type="button">Refresh</button>
                             </div>
-                            <div class="ub-field" style="margin-bottom: 0;">
-                                <div class="ub-label">Session Token</div>
-                                <p class="ub-hint" style="margin-bottom: 8px;">Paste the token shown after verifying your account here.</p>
-                                <div class="ub-token-wrap">
-                                    <input id="ub-session-token" type="text" class="ub-input" placeholder="Paste your session token here" autocomplete="off" spellcheck="false" />
-                                    <div id="ub-session-token-overlay" class="ub-token-overlay"><div id="ub-session-token-overlay-inner" class="ub-token-overlay-inner"></div></div>
+                            <div id="ub-writebudget-content" class="ub-field" style="margin-bottom: 0; display: none;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span id="ub-writebudget-label" style="font-size: 13px; opacity: 0.85;">Writes Remaining</span>
+                                    <span id="ub-writebudget-count" style="font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;">- / -</span>
+                                </div>
+                                <div style="height: 6px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; margin-bottom: 8px;">
+                                    <div id="ub-writebudget-bar" style="height: 100%; border-radius: 999px; width: 0%; background: var(--ub-accent); transition: width 400ms cubic-bezier(0.4,0,0.2,1), background 400ms ease;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span id="ub-writebudget-reset" style="font-size: 12px; opacity: 0.6;"></span>
+                                    <button id="ub-writebudget-refresh" class="ub-btn" type="button">Refresh</button>
                                 </div>
                             </div>
                         </div>
@@ -1504,11 +935,11 @@ export function dashboardHtml(presetLabels: string[] = []): string {
                             <p class="ub-hint">
                                 Your saved badge slots. Click "Use" on any badge to make it active and publish it. Add a new slot to build another look - you can have up to 12.
                             </p>
-                            <div id="ub-my-badges-list" style="margin-bottom: 10px;"></div>
+                            <div id="ub-my-badges-list" class="ub-hint" style="font-style: italic; margin-bottom: 14px;">No saved badges yet</div>
                             <button id="ub-new-badge-slot" class="ub-btn ub-btn-primary">${icon.plus} New Badge Slot</button>
                         </div>
 
-                        <div class="ub-section">
+                        <div class="ub-section" style="margin-bottom: 0;">
                             <div class="ub-section-head">
                                 <div class="ub-section-icon">${icon.box}</div>
                                 <div class="ub-eyebrow">Badge Packs</div>
@@ -1518,75 +949,12 @@ export function dashboardHtml(presetLabels: string[] = []): string {
                             </p>
                             <div class="ub-field">
                                 <div class="ub-label">Import Pack from URL</div>
-                                <p class="ub-hint" style="margin-bottom: 8px;">Raw GitHub URL to a badge pack JSON file (e.g. https://raw.githubusercontent.com/you/repo/main/packs/friend-group.json). Use the raw.githubusercontent.com link, not a github.com/blob/... page.</p>
-                                <input id="ub-import-pack-url" type="text" class="ub-input" placeholder="https://raw.githubusercontent.com/ItzMeShadow999/Badges/main/packs/DiscordBadges.json" />
+                                <input id="ub-import-pack-url" type="text" class="ub-input" placeholder="https://raw.githubusercontent.com/..." />
                             </div>
-                            <div class="ub-btn-row" style="margin-bottom: 0; flex-wrap: wrap; gap: 8px;">
-                                <button id="ub-import-pack" class="ub-btn ub-btn-primary">Import Pack</button>
-                                <button id="ub-make-pack" class="ub-btn">Make Pack (Copy JSON)</button>
-                                <button id="ub-browse-packs" class="ub-btn">Add More Packs</button>
-                                <button id="ub-view-guidelines" type="button" class="ub-btn-link">View Publish Guide</button>
-                            </div>
-                        </div>
-
-                        <div class="ub-section" style="margin-bottom: 0;">
-                            <div class="ub-section-head">
-                                <div class="ub-section-icon">${icon.toggle}</div>
-                                <div class="ub-eyebrow">Behavior</div>
-                            </div>
-
-                            <div class="ub-switch-row">
-                                <div class="ub-switch-copy">
-                                    <div class="ub-switch-label">Show Tooltip</div>
-                                    <div class="ub-switch-desc">Show a small tooltip when hovering a custom badge</div>
-                                </div>
-                                <button type="button" id="ub-show-tooltip" class="ub-switch on" role="switch" aria-checked="true"></button>
-                            </div>
-
-                            <div class="ub-switch-row" id="ub-show-popup-row">
-                                <div class="ub-switch-copy">
-                                    <div class="ub-switch-label">Show Popup</div>
-                                    <div class="ub-switch-desc">Show a popup card when clicking a custom badge. Locked off in Vencord Classic [Limited] mode.</div>
-                                </div>
-                                <button type="button" id="ub-show-popup" class="ub-switch on" role="switch" aria-checked="true"></button>
-                            </div>
-
-                            <div class="ub-switch-row" id="ub-show-owner-tag-row">
-                                <div class="ub-switch-copy">
-                                    <div class="ub-switch-label">Show Owner Tag</div>
-                                    <div class="ub-switch-desc">Show who created the badge underneath its name in the popup</div>
-                                </div>
-                                <button type="button" id="ub-show-owner-tag" class="ub-switch on" role="switch" aria-checked="true"></button>
-                            </div>
-
-                            <div class="ub-field" id="ub-owner-tag-format-field" style="margin-top: 12px;">
-                                <div class="ub-label">Owner Tag Format</div>
-                                <p class="ub-hint" style="margin-bottom: 8px;">Use <code>{username}</code> for the creator's username, and <code>{pluginusedate}</code> for the date they first started using this plugin.</p>
-                                <input id="ub-owner-tag-format" type="text" class="ub-input" placeholder="By {username}" />
-                            </div>
-
-                            <div class="ub-switch-row">
-                                <div class="ub-switch-copy">
-                                    <div class="ub-switch-label">Append Vencord Tag</div>
-                                    <div class="ub-switch-desc">Add a [Vencord] suffix after your badge name. Seen by everyone who views your badge.</div>
-                                </div>
-                                <button type="button" id="ub-append-vencord-tag" class="ub-switch" role="switch" aria-checked="false"></button>
-                            </div>
-
-                            <div class="ub-switch-row">
-                                <div class="ub-switch-copy">
-                                    <div class="ub-switch-label">Hide Own Badge</div>
-                                    <div class="ub-switch-desc">Don't show my own badge to myself when viewing my own profile</div>
-                                </div>
-                                <button type="button" id="ub-hide-own-badge" class="ub-switch" role="switch" aria-checked="false"></button>
-                            </div>
-
-                            <div class="ub-switch-row">
-                                <div class="ub-switch-copy">
-                                    <div class="ub-switch-label">Restrict to Mutual Servers</div>
-                                    <div class="ub-switch-desc">Only show your badge to people who share a server with you</div>
-                                </div>
-                                <button type="button" id="ub-restrict-mutual-guilds" class="ub-switch" role="switch" aria-checked="false"></button>
+                            <div class="ub-btn-row" style="margin-bottom: 0;">
+                                <button id="ub-import-pack" class="ub-btn">Import Pack</button>
+                                <button id="ub-make-pack" class="ub-btn ub-btn-primary">Make Pack (Copy JSON)</button>
+                                <button id="ub-browse-packs" class="ub-btn ub-btn-primary">Add More Packs</button>
                             </div>
                         </div>
                     </div>
@@ -1722,53 +1090,6 @@ export function dashboardHtml(presetLabels: string[] = []): string {
                     </div>
                 </div>
             </section>
-        </div>
-
-        <div id="ub-guidelines-backdrop" class="ub-guidelines-backdrop" id="ub-guidelines-backdrop"></div>
-        <div id="ub-guidelines-panel" class="ub-guidelines-panel">
-            <button type="button" class="ub-guidelines-close" id="ub-guidelines-close" title="Close">✕</button>
-            <div class="ub-guidelines-h2">📦 Badge Pack Sharing Guidelines</div>
-            <div style="color: var(--ub-text-muted); font-size: 13.5px; margin-bottom: 18px; line-height: 1.55;">Before sharing a pack, make sure it meets these standards so everyone has a smooth experience importing it.</div>
-
-            <div class="ub-guidelines-h3">Format</div>
-            <div style="color: var(--ub-text-secondary); margin-bottom: 8px;">Your pack must be a valid JSON file hosted on <code class="ub-guidelines-inline-code">raw.githubusercontent.com</code> - no other hosts are accepted by the importer. The structure should look like this:</div>
-            <code class="ub-guidelines-code"><span class="p">{</span>
-  <span class="k">"version"</span><span class="p">:</span> <span class="n">1</span><span class="p">,</span>
-  <span class="k">"badges"</span><span class="p">:</span> <span class="p">[</span>
-    <span class="s">"base64encodedcode"</span><span class="p">,</span>
-    <span class="s">"base64encodedcode"</span>
-  <span class="p">]</span>
-<span class="p">}</span></code>
-            <div style="color: var(--ub-text-secondary);">Each entry in the <code class="ub-guidelines-inline-code">badges</code> array is a badge code generated by the <strong>Make Pack</strong> button in your dashboard.</div>
-
-            <div class="ub-guidelines-h3">Pack Size</div>
-            <div class="ub-guidelines-note">ⓘ The importer only loads the <strong>first 6 badges</strong> from any pack. The <strong>Make Pack</strong> button exports up to <strong>12 badges</strong> (your current plugin save limit). Technically packs can be as large as you want, but we recommend a minimum of <strong>6</strong> and a maximum of <strong>10–15</strong> for the best experience.</div>
-
-            <div class="ub-guidelines-h3">Content Rules</div>
-            <div class="ub-guidelines-warn">⚠️ Packs that break these rules will be removed without warning.</div>
-            <ul>
-                <li>Badges must use <strong>publicly accessible image URLs</strong> that won't die in a week (no Discord CDN links, no temp hosts)</li>
-                <li>No NSFW, offensive, or hateful imagery</li>
-                <li>No impersonation of other users, plugins, or brands</li>
-            </ul>
-
-            <div class="ub-guidelines-h3">How to Submit</div>
-            <ol>
-                <li>Generate your pack JSON using the <strong>Make Pack (Copy JSON)</strong> button</li>
-                <li>Push it to the packs repo as <code class="ub-guidelines-inline-code">packs/your-pack-name.json</code> in <a href="https://github.com/ItzMeShadow999/Badges" target="_blank" rel="noopener noreferrer">https://github.com/ItzMeShadow999/Badges</a></li>
-                <li>Open a PR with a short description of the theme</li>
-            </ol>
-
-            <div class="ub-guidelines-h3">Tips for a Good Pack</div>
-            <ul>
-                <li>Use a clear, descriptive filename (<code class="ub-guidelines-inline-code">anime-icons.json</code>, not <code class="ub-guidelines-inline-code">pack1.json</code>)</li>
-                <li>All badges in a pack should share a <strong>theme or aesthetic</strong> - random assortments are harder to browse</li>
-                <li>Test your pack with <strong>Import Pack from URL</strong> before submitting to make sure every badge imports cleanly</li>
-            </ul>
-
-            <div style="margin-top: 24px; display: flex; justify-content: flex-end; padding-top: 16px; border-top: 1px solid var(--ub-border);">
-                <button type="button" id="ub-guidelines-close-btn" class="ub-btn ub-btn-primary">Got it</button>
-            </div>
         </div>
     `;
 }
