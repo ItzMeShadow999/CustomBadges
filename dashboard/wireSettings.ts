@@ -1,6 +1,28 @@
 import { getDashboardBridge } from "./bridge";
 
-let packGuidelinesShownThisSession = false;
+
+let writeBudgetIntervalId: ReturnType<typeof setInterval> | null = null;
+let unsubscribeWriteBudget: (() => void) | null = null;
+
+function formatResetIn(resetAt: number): string {
+    const msLeft = resetAt - Date.now();
+    if (msLeft <= 0) return "";
+    const h = Math.floor(msLeft / 3_600_000);
+    const m = Math.floor((msLeft % 3_600_000) / 60_000);
+    return `Resets in ${h > 0 ? `${h}h ` : ""}${m}m`;
+}
+
+
+export function unwireDashboardWriteBudget() {
+    if (writeBudgetIntervalId !== null) {
+        clearInterval(writeBudgetIntervalId);
+        writeBudgetIntervalId = null;
+    }
+    if (unsubscribeWriteBudget) {
+        unsubscribeWriteBudget();
+        unsubscribeWriteBudget = null;
+    }
+}
 
 export function wireDashboardSettings(root: HTMLElement) {
     const bridge = getDashboardBridge();
@@ -18,9 +40,6 @@ export function wireDashboardSettings(root: HTMLElement) {
     const badgeName = $<HTMLInputElement>("ub-badge-name");
     const importBadgeCode = $<HTMLInputElement>("ub-import-badge-code");
     const importPackUrl = $<HTMLInputElement>("ub-import-pack-url");
-    const sessionToken = $<HTMLInputElement>("ub-session-token");
-    const sessionTokenOverlay = $<HTMLElement>("ub-session-token-overlay-inner");
-    const revokeTokenBtn = $<HTMLButtonElement>("ub-revoke-token");
 
     const badgeModeInput = $<HTMLInputElement>("ub-badge-mode");
     const selectedPresetInput = $<HTMLInputElement>("ub-selected-preset");
@@ -39,17 +58,6 @@ export function wireDashboardSettings(root: HTMLElement) {
     const gradientSecondaryHex = $<HTMLElement>("ub-gradient-secondary-hex");
     const nameColor = $<HTMLInputElement>("ub-name-color");
     const nameColorHex = $<HTMLElement>("ub-name-color-hex");
-
-    const showTooltipSwitch = $<HTMLButtonElement>("ub-show-tooltip");
-    const showPopupSwitch = $<HTMLButtonElement>("ub-show-popup");
-    const showPopupRow = $<HTMLElement>("ub-show-popup-row");
-    const showOwnerTagSwitch = $<HTMLButtonElement>("ub-show-owner-tag");
-    const showOwnerTagRow = $<HTMLElement>("ub-show-owner-tag-row");
-    const ownerTagFormat = $<HTMLInputElement>("ub-owner-tag-format");
-    const ownerTagFormatField = $<HTMLElement>("ub-owner-tag-format-field");
-    const appendVencordTagSwitch = $<HTMLButtonElement>("ub-append-vencord-tag");
-    const hideOwnBadgeSwitch = $<HTMLButtonElement>("ub-hide-own-badge");
-    const restrictMutualGuildsSwitch = $<HTMLButtonElement>("ub-restrict-mutual-guilds");
 
     function wireDropdown(
         dropdownId: string,
@@ -194,206 +202,9 @@ export function wireDashboardSettings(root: HTMLElement) {
         });
     }
 
-    function wireSwitch(btn: HTMLButtonElement | null, onChange: (val: boolean) => void) {
-        if (!btn) return;
-        btn.addEventListener("click", () => {
-            if (btn.disabled) return;
-            const next = !btn.classList.contains("on");
-            btn.classList.toggle("on", next);
-            btn.setAttribute("aria-checked", String(next));
-            onChange(next);
-        });
-    }
-
-    function setSwitchValue(btn: HTMLButtonElement | null, val: boolean) {
-        if (!btn) return;
-        btn.classList.toggle("on", val);
-        btn.setAttribute("aria-checked", String(val));
-    }
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    let tokenMasked = !!settings.store.sessionToken;
-
-    function escapeHtml(s: string) {
-        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    }
-
-    function syncOverlayScroll() {
-        if (!sessionToken || !sessionTokenOverlay) return;
-        sessionTokenOverlay.style.transform = `translateX(${-sessionToken.scrollLeft}px)`;
-    }
-
-    function buildTokenChars(masked: boolean) {
-        if (!sessionToken || !sessionTokenOverlay) return;
-        const value = sessionToken.value;
-        sessionToken.classList.toggle("ub-token-empty", !value);
-        if (!value) {
-            sessionTokenOverlay.innerHTML = "";
-            syncOverlayScroll();
-            return;
-        }
-        const chars = value.split("");
-        sessionTokenOverlay.innerHTML = chars.map((ch, i) => {
-            const delay = masked ? i * 16 : (chars.length - 1 - i) * 16;
-            return `<span class="ub-token-char">` +
-                `<span class="ub-token-glyph ub-token-glyph-letter${!masked ? " ub-token-shown" : ""}" style="transition-delay:${delay}ms">${escapeHtml(ch)}</span>` +
-                `<span class="ub-token-glyph ub-token-glyph-dot${masked ? " ub-token-shown" : ""}" style="transition-delay:${delay}ms">•</span>` +
-                `</span>`;
-        }).join("");
-        syncOverlayScroll();
-    }
-
-    function setTokenMasked(masked: boolean) {
-        if (!sessionTokenOverlay) return;
-        const charEls = sessionTokenOverlay.querySelectorAll<HTMLElement>(".ub-token-char");
-        const total = charEls.length;
-        charEls.forEach((charEl, i) => {
-            const delay = masked ? i * 16 : (total - 1 - i) * 16;
-            const letter = charEl.querySelector<HTMLElement>(".ub-token-glyph-letter");
-            const dot = charEl.querySelector<HTMLElement>(".ub-token-glyph-dot");
-            if (letter) {
-                letter.style.transitionDelay = `${delay}ms`;
-                letter.classList.toggle("ub-token-shown", !masked);
-            }
-            if (dot) {
-                dot.style.transitionDelay = `${delay}ms`;
-                dot.classList.toggle("ub-token-shown", masked);
-            }
-        });
-        syncOverlayScroll();
-    }
-
-    sessionToken?.addEventListener("focus", () => {
-        tokenMasked = false;
-        setTokenMasked(false);
-    });
-
-    sessionToken?.addEventListener("blur", () => {
-        if (!sessionToken.value) { tokenMasked = true; return; }
-        
-        
-        
-        requestAnimationFrame(() => {
-            tokenMasked = true;
-            setTokenMasked(true);
-        });
-    });
-
-    sessionToken?.addEventListener("input", () => {
-        
-        
-        
-        buildTokenChars(document.activeElement === sessionToken ? false : tokenMasked);
-    });
-
-    
-    
-    
-    
-    sessionToken?.addEventListener("scroll", syncOverlayScroll);
-
-    
-    
-    const guidelinesPanel = $<HTMLElement>("ub-guidelines-panel");
-    const guidelinesBackdrop = $<HTMLElement>("ub-guidelines-backdrop");
-    const CRT_CLOSE_ANIM_MS = 340;
-    let guidelinesClosing = false;
-
-    function openGuidelines() {
-        if (!guidelinesPanel) return;
-        guidelinesClosing = false;
-        guidelinesPanel.classList.remove("ub-panel-closing");
-        
-        void guidelinesPanel.offsetWidth;
-        guidelinesPanel.classList.add("ub-panel-open");
-        if (guidelinesBackdrop) guidelinesBackdrop.classList.add("ub-backdrop-open");
-    }
-
-    function closeGuidelines() {
-        if (!guidelinesPanel || guidelinesClosing || !guidelinesPanel.classList.contains("ub-panel-open")) return;
-        guidelinesClosing = true;
-        if (guidelinesBackdrop) guidelinesBackdrop.classList.remove("ub-backdrop-open");
-        guidelinesPanel.classList.add("ub-panel-closing");
-        setTimeout(() => {
-            guidelinesPanel.classList.remove("ub-panel-open", "ub-panel-closing");
-            guidelinesClosing = false;
-        }, CRT_CLOSE_ANIM_MS);
-    }
-
-    $("ub-view-guidelines")?.addEventListener("click", openGuidelines);
-    $("ub-guidelines-close")?.addEventListener("click", closeGuidelines);
-    $("ub-guidelines-close-btn")?.addEventListener("click", closeGuidelines);
-    guidelinesBackdrop?.addEventListener("click", closeGuidelines);
-
-    function updatePopupLockState() {
-        const locked = settings.store.badgeMode === "vencord";
-        showPopupRow?.classList.toggle("ub-disabled", locked);
-        if (showPopupSwitch) showPopupSwitch.disabled = locked;
-        showOwnerTagRow?.classList.toggle("ub-disabled", locked);
-        if (showOwnerTagSwitch) showOwnerTagSwitch.disabled = locked;
-        ownerTagFormatField?.classList.toggle("ub-disabled", locked);
-        if (ownerTagFormat) ownerTagFormat.disabled = locked;
-    }
-
     wireDropdown("ub-badge-mode-dropdown", "ub-badge-mode", "ub-badge-mode-value", val => {
         settings.store.badgeMode = val;
         bridge.onBadgeModeChange(val);
-        updatePopupLockState();
-    });
-
-    wireSwitch(showTooltipSwitch, val => {
-        settings.store.showTooltip = val;
-    });
-
-    wireSwitch(showPopupSwitch, val => {
-        settings.store.showPopup = val;
-    });
-
-    wireSwitch(showOwnerTagSwitch, val => {
-        settings.store.showOwnerTag = val;
-    });
-
-    ownerTagFormat?.addEventListener("change", () => {
-        settings.store.ownerTagFormat = ownerTagFormat.value;
-    });
-
-    wireSwitch(appendVencordTagSwitch, val => {
-        settings.store.appendVencordTag = val;
-        updatePreview();
-    });
-
-    wireSwitch(hideOwnBadgeSwitch, val => {
-        settings.store.hideOwnBadge = val;
-    });
-
-    wireSwitch(restrictMutualGuildsSwitch, val => {
-        settings.store.restrictToMutualGuilds = val;
     });
 
     wireDropdown("ub-selected-preset-dropdown", "ub-selected-preset", "ub-selected-preset-value", val => {
@@ -527,77 +338,10 @@ export function wireDashboardSettings(root: HTMLElement) {
         });
     }
 
-    const myBadgesListEl = $<HTMLElement>("ub-my-badges-list");
-
-    function renderMyBadgesList() {
-        if (!myBadgesListEl) return;
-
-        let badges: { id: string; imageUrl: string; description: string; }[] = [];
-        try {
-            badges = JSON.parse(settings.store.myBadgesJson || "[]");
-        } catch { badges = []; }
-
-        const activeId = settings.store.myActiveBadgeId ?? "";
-
-        if (!badges.length) {
-            myBadgesListEl.innerHTML = "";
-            return;
-        }
-
-        myBadgesListEl.innerHTML = badges.map(b => {
-            const isActive = b.id === activeId;
-            return `
-                <div class="ub-badge-row${isActive ? " ub-badge-active" : ""}" data-badge-id="${b.id}">
-                    <img class="ub-badge-thumb" src="${b.imageUrl || ""}" alt="${b.description || ""}" referrerpolicy="no-referrer" />
-                    <span class="ub-badge-row-name">
-                        ${b.description || "Unnamed badge"}${isActive ? `<span class="ub-badge-active-tag">(active)</span>` : ""}
-                    </span>
-                    <div class="ub-badge-row-actions">
-                        ${!isActive ? `<button type="button" class="ub-badge-use-btn" data-use-id="${b.id}">Use</button>` : ""}
-                        <button type="button" class="ub-badge-delete-btn" data-delete-id="${b.id}">Delete</button>
-                    </div>
-                </div>
-            `;
-        }).join("");
-
-        myBadgesListEl.querySelectorAll<HTMLButtonElement>(".ub-badge-use-btn").forEach(btn => {
-            btn.addEventListener("click", async () => {
-                const id = btn.dataset.useId;
-                if (!id) return;
-                btn.disabled = true;
-                btn.textContent = "...";
-                try {
-                    await bridge.switchToBadge(id);
-                } finally {
-                    syncFromStore();
-                }
-            });
-        });
-
-        myBadgesListEl.querySelectorAll<HTMLButtonElement>(".ub-badge-delete-btn").forEach(btn => {
-            btn.addEventListener("click", async () => {
-                const id = btn.dataset.deleteId;
-                if (!id) return;
-                btn.disabled = true;
-                btn.textContent = "...";
-                try {
-                    await bridge.deleteBadgeSlot(id);
-                } finally {
-                    syncFromStore();
-                }
-            });
-        });
-    }
-
     function syncFromStore() {
         if (apiBaseUrl) apiBaseUrl.value = settings.store.apiBaseUrl ?? "";
         if (badgeImageUrl) badgeImageUrl.value = settings.store.myBadgeImageUrl ?? "";
         if (badgeName) badgeName.value = settings.store.myBadgeName ?? "";
-        if (sessionToken) sessionToken.value = settings.store.sessionToken ?? "";
-        tokenMasked = document.activeElement === sessionToken ? false : !!settings.store.sessionToken;
-        buildTokenChars(tokenMasked);
-        if (revokeTokenBtn) revokeTokenBtn.disabled = !settings.store.sessionToken;
-        renderMyBadgesList();
 
         const modeVal = settings.store.badgeMode ?? "original";
         if (badgeModeInput) badgeModeInput.value = modeVal;
@@ -646,15 +390,6 @@ export function wireDashboardSettings(root: HTMLElement) {
         if (nameColorHex) nameColorHex.textContent = nameColorVal.toUpperCase();
 
         setChoiceGroupValue("ub-popup-anim-group", "ub-popup-anim", settings.store.popupAnimationStyle ?? "fade");
-
-        setSwitchValue(showTooltipSwitch, settings.store.showTooltip ?? true);
-        setSwitchValue(showPopupSwitch, settings.store.showPopup ?? true);
-        setSwitchValue(showOwnerTagSwitch, settings.store.showOwnerTag ?? true);
-        if (ownerTagFormat) ownerTagFormat.value = settings.store.ownerTagFormat ?? "By {username}";
-        setSwitchValue(appendVencordTagSwitch, settings.store.appendVencordTag ?? false);
-        setSwitchValue(hideOwnBadgeSwitch, settings.store.hideOwnBadge ?? false);
-        setSwitchValue(restrictMutualGuildsSwitch, settings.store.restrictToMutualGuilds ?? false);
-        updatePopupLockState();
 
         updatePreview();
     }
@@ -707,33 +442,107 @@ export function wireDashboardSettings(root: HTMLElement) {
         syncFromStore();
     });
 
-    $("ub-make-pack")?.addEventListener("click", () => {
-        bridge.makePack();
-        if (!settings.store.packGuidelinesShown) {
-            settings.store.packGuidelinesShown = true;
-            openGuidelines();
-        }
-    });
+    $("ub-make-pack")?.addEventListener("click", () => bridge.makePack());
     $("ub-browse-packs")?.addEventListener("click", () => bridge.browsePacks());
 
-    $("ub-verify-account")?.addEventListener("click", () => bridge.verifyAccount());
-
-    sessionToken?.addEventListener("change", () => {
-        settings.store.sessionToken = sessionToken.value;
-        if (revokeTokenBtn) revokeTokenBtn.disabled = !settings.store.sessionToken;
-    });
-
-    revokeTokenBtn?.addEventListener("click", async () => {
-        if (!settings.store.sessionToken || revokeTokenBtn.disabled) return;
-        revokeTokenBtn.disabled = true;
-        const originalLabel = revokeTokenBtn.textContent;
-        revokeTokenBtn.textContent = "Revoking...";
-        try {
-            await bridge.revokeSessionToken();
-        } finally {
-            syncFromStore();
-            if (revokeTokenBtn.textContent === "Revoking...") revokeTokenBtn.textContent = originalLabel;
-        }
-    });
+    wireWriteBudget(root, bridge);
 }
 
+
+function wireWriteBudget(root: HTMLElement, bridge: any) {
+    const $ = <T extends HTMLElement>(id: string) => root.querySelector(`#${id}`) as T | null;
+
+    const unverifiedEl = $<HTMLElement>("ub-writebudget-unverified");
+    const contentEl = $<HTMLElement>("ub-writebudget-content");
+    const labelEl = $<HTMLElement>("ub-writebudget-label");
+    const countEl = $<HTMLElement>("ub-writebudget-count");
+    const barEl = $<HTMLElement>("ub-writebudget-bar");
+    const resetEl = $<HTMLElement>("ub-writebudget-reset");
+    const refreshBtn = $<HTMLButtonElement>("ub-writebudget-refresh");
+    const refreshBtnUnverified = $<HTMLButtonElement>("ub-writebudget-refresh-unverified");
+
+    if (!unverifiedEl || !contentEl || !labelEl || !countEl || !barEl || !resetEl) return;
+
+
+    if (writeBudgetIntervalId !== null) clearInterval(writeBudgetIntervalId);
+    if (unsubscribeWriteBudget) unsubscribeWriteBudget();
+
+    const maxWrites = (bridge as any).writeBudgetMaxWrites ?? 30;
+
+    function render() {
+        const verified = !!settingsStore().sessionToken;
+        const budget = (bridge as any).getWriteBudget?.() ?? null;
+
+        if (!verified) {
+            unverifiedEl!.style.display = "flex";
+            contentEl!.style.display = "none";
+            return;
+        }
+
+        const hasReading = !!budget && typeof budget.remaining === "number";
+        if (!hasReading) {
+
+            unverifiedEl!.style.display = "none";
+            contentEl!.style.display = "block";
+            labelEl!.textContent = "Writes Remaining";
+            return;
+        }
+
+        unverifiedEl!.style.display = "none";
+        contentEl!.style.display = "block";
+
+        const limit = budget.limit ?? maxWrites;
+        const remaining = Math.max(0, budget.remaining);
+        const pct = limit > 0 ? Math.max(0, Math.min(100, (remaining / limit) * 100)) : 0;
+        const exhausted = remaining === 0;
+        const low = !exhausted && remaining <= Math.ceil(limit * 0.2);
+        const barColor = exhausted ? "var(--ub-danger)" : (low ? "var(--ub-warning)" : "var(--ub-accent)");
+
+        labelEl!.textContent = exhausted ? "Write budget exhausted" : "Writes Remaining";
+        labelEl!.style.color = exhausted ? "var(--ub-danger)" : "";
+        labelEl!.style.fontWeight = exhausted ? "600" : "400";
+        countEl!.textContent = `${remaining} / ${limit}`;
+        barEl!.style.width = `${pct}%`;
+        barEl!.style.background = barColor;
+
+
+
+        resetEl!.textContent = budget.resetAt ? (formatResetIn(budget.resetAt) || "Refreshing…") : "";
+    }
+
+    function settingsStore() {
+        return bridge.settings.store;
+    }
+
+    function tick() {
+        const budget = (bridge as any).getWriteBudget?.() ?? null;
+        if (budget?.resetAt && budget.resetAt - Date.now() <= 0) {
+            (bridge as any).refreshWriteBudget?.();
+        } else {
+            render();
+        }
+    }
+
+    async function doRefresh(btn: HTMLButtonElement | null) {
+        if (!btn) return;
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Refreshing...";
+        try {
+            await (bridge as any).refreshWriteBudget?.();
+        } finally {
+            btn.disabled = false;
+            btn.textContent = original ?? "Refresh";
+        }
+    }
+
+    refreshBtn?.addEventListener("click", () => doRefresh(refreshBtn));
+    refreshBtnUnverified?.addEventListener("click", () => doRefresh(refreshBtnUnverified));
+
+    unsubscribeWriteBudget = (bridge as any).subscribeWriteBudget?.(() => render()) ?? null;
+
+    if (settingsStore().sessionToken) (bridge as any).refreshWriteBudget?.();
+
+    render();
+    writeBudgetIntervalId = setInterval(tick, 1000);
+}
