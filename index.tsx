@@ -10,6 +10,7 @@ import { buttonRegistry } from "./dashboard/buttonRegistry";
 import { renderDashboardView, restoreDefaultView } from "./dashboard/dashboardView";
 import { setDashboardActive, state as dashboardState } from "./dashboard/types";
 import { setDashboardBridge } from "./dashboard/bridge";
+import { unwireDashboardWriteBudget } from "./dashboard/wireSettings";
 
 const BADGE_CLASS = "custom-badge-injected";
 const STYLE_ID = "custom-badges-style";
@@ -20,6 +21,13 @@ const PACKS_REPO_URL = "https://github.com/ItzMeShadow999/Badges";
 
 const BADGE_EXPIRY_WARNING_DAYS = 14;
 let expiryWarningShownThisSession = false;
+
+// The actual ROUTE_CHANGED listener registered in start(), kept at module
+// scope so stop() can unsubscribe the *same* function reference. Previously
+// stop() unsubscribed `onRouteChanged` (a different, never-subscribed
+// function) which was a no-op - the real listener stuck around across
+// plugin restarts and stacked up an extra ROUTE_CHANGED handler each time.
+let routeChangedHandler: (() => void) | null = null;
 
 function normalizeBadgeName(name: string): string {
     return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -63,10 +71,23 @@ function describeBadgeApiError(e: unknown): string {
             const seconds = Math.max(1, Math.ceil(Number(detail) / 1000) || 1);
             return `Slow down a little - try again in ${seconds}s`;
         }
-        case "SERVER_RATE_LIMIT":
-            return detail && /^\d+$/.test(detail)
-                ? `Rate limited by the badge server - try again in ${detail}s`
-                : "Rate limited by the badge server - try again shortly";
+        case "SERVER_RATE_LIMIT": {
+            // The server multiplexes two different 429s onto this same kind:
+            // the short 10s burst limiter, and the 30-write/5h write budget
+            // being exhausted. Both carry a retry-after in seconds, but a
+            // multi-minute value is almost certainly the write budget, not
+            // the burst limiter, so phrase it accordingly instead of saying
+            // "try again in 14400s".
+            const seconds = detail && /^\d+$/.test(detail) ? Number(detail) : null;
+            if (seconds === null) return "Rate limited by the badge server - try again shortly";
+            if (seconds > 90) {
+                const h = Math.floor(seconds / 3600);
+                const m = Math.round((seconds % 3600) / 60);
+                const readable = h > 0 ? `${h}h ${m}m` : `${m}m`;
+                return `Write budget exhausted - resets in ${readable}`;
+            }
+            return `Rate limited by the badge server - try again in ${seconds}s`;
+        }
         case "TIMEOUT":
             return "Request timed out - the badge server didn't respond in time";
         case "NETWORK":
@@ -239,6 +260,82 @@ export const BUILTIN_PRESETS = [
 let suppressPublishOnChange = false;
 
 const popupSettingsDisabled = () => settings.store.badgeMode === "vencord";
+
+// --- Write budget (shared client-side state) ------------------------------
+// The server (worker.js) is the sole source of truth for the 30-writes /
+// 5-hour rolling window - this is just a thin cache of its last reading so
+// the Settings UI doesn't have to hit GET /self/writes on every render.
+// Mirrors the equivalent state on the CustomBadges reference plugin
+// (getWriteBudget/setWriteBudget/refreshWriteBudget/subscribeWriteBudget),
+// reproduced here rather than imported since Vencord plugins can't import
+// across BdApi/Vencord module boundaries.
+export type WriteBudget = { remaining: number; limit: number; windowHours: number; resetAt: number; } | null;
+
+export const WRITE_BUDGET_MAX_WRITES = 30; // fallback label only - the server's `limit` field is authoritative
+const WRITE_BUDGET_TIMEOUT_MS = 10_000;
+
+let writeBudget: WriteBudget = null;
+const writeBudgetListeners = new Set<(budget: WriteBudget) => void>();
+
+export function getWriteBudget(): WriteBudget {
+    return writeBudget;
+}
+
+export function setWriteBudget(budget: WriteBudget) {
+    writeBudget = budget;
+    writeBudgetListeners.forEach(fn => { try { fn(budget); } catch { } });
+}
+
+export function subscribeWriteBudget(fn: (budget: WriteBudget) => void) {
+    writeBudgetListeners.add(fn);
+    return () => writeBudgetListeners.delete(fn);
+}
+
+// Read-only - doesn't consume a write. Talked to directly (not through
+// VencordNative.pluginHelpers) since it's a simple authenticated GET; POSTs
+// that actually write badges still go through the existing native helpers.
+async function apiGetWriteBudget(): Promise<WriteBudget> {
+    const token = settings.store.sessionToken;
+    if (!token) throw new Error("NOT_VERIFIED:Verify your Discord account first");
+
+    const base = settings.store.apiBaseUrl || "https://custom-badges.shadow-164.workers.dev";
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), WRITE_BUDGET_TIMEOUT_MS);
+    try {
+        const res = await fetch(`${base}/self/writes`, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal
+        });
+        if (!res.ok) throw new Error(`SERVER_ERROR:${res.status}`);
+        return await res.json(); // { remaining, limit, windowHours, resetAt }
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+// Central place the Settings panel reads through - fetches a fresh reading,
+// caches it, and notifies subscribers so everything stays in sync without
+// polling.
+export async function refreshWriteBudget(): Promise<WriteBudget> {
+    try {
+        const budget = await apiGetWriteBudget();
+        setWriteBudget(budget);
+        return budget;
+    } catch {
+        // Not verified yet, or a network hiccup - leave any previous
+        // reading in place rather than clobbering it with an error state.
+        return writeBudget;
+    }
+}
+
+// Called after a successful write. Prefers the writeBudget the server
+// already returned inline with the write (no extra request); only falls
+// back to a fresh GET /self/writes if the response didn't include one.
+async function updateWriteBudgetAfterWrite(responseWriteBudget: WriteBudget | undefined) {
+    if (responseWriteBudget) setWriteBudget(responseWriteBudget);
+    else await refreshWriteBudget();
+}
 
 export const settings = definePluginSettings({
     badgeMode: {
@@ -927,6 +1024,10 @@ export async function revokeSessionToken() {
     try {
         await VencordNative.pluginHelpers.CustomBadges.revokeOwnToken(settings.store.sessionToken, settings.store.apiBaseUrl);
         settings.store.sessionToken = "";
+        // Token is gone - the cached budget reading is no longer valid for
+        // this account, so drop it and let both surfaces fall back to the
+        // "verify to see your write budget" state until re-verified.
+        setWriteBudget(null);
         Toasts.show({ id: Toasts.genId(), type: Toasts.Type.SUCCESS, message: "Token revoked - re-verify to publish badge changes again" });
     } catch (e) {
         showBadgeErrorToast(describeBadgeApiError(e));
@@ -1036,6 +1137,116 @@ function RevokeTokenButton() {
         >
             {busy ? "Revoking..." : "Revoke Your Token"}
         </Button>
+    );
+}
+
+function formatResetIn(resetAt: number): string {
+    const msLeft = resetAt - Date.now();
+    if (msLeft <= 0) return "";
+    const h = Math.floor(msLeft / 3_600_000);
+    const m = Math.floor((msLeft % 3_600_000) / 60_000);
+    return `Resets in ${h > 0 ? `${h}h ` : ""}${m}m`;
+}
+
+function WriteBudgetPanel() {
+    const [budget, setBudgetState] = useState<WriteBudget>(getWriteBudget());
+    const [loading, setLoading] = useState(false);
+    const [verified, setVerified] = useState(!!settings.store.sessionToken);
+    const [, tick] = useReducer(x => x + 1, 0);
+
+    useEffect(() => {
+        // Kept in sync with setMyBadge/switchToBadge/deleteBadgeSlot (and
+        // any manual refresh) via the shared listener set.
+        const unsubscribe = subscribeWriteBudget(setBudgetState);
+        // /self/writes is read-only and never consumes a write, so it's
+        // safe to pull one reading on mount to make sure a stale/absent
+        // cached value gets filled in.
+        if (settings.store.sessionToken) refreshWriteBudget();
+        return unsubscribe;
+    }, []);
+
+    useEffect(() => {
+        // The moment verification finishes elsewhere in Settings, pull one
+        // read-only reading so this panel doesn't sit on the "verify to see
+        // your budget" message until something else re-renders it.
+        if (verified) refreshWriteBudget();
+    }, [verified]);
+
+    useEffect(() => {
+        // Tick the "resets in" text down locally once a second instead of
+        // polling the server, and pick up sessionToken changes made
+        // elsewhere in Settings. Once the window has actually rolled over,
+        // pull one fresh reading so restored writes show up without the
+        // user having to reopen Settings.
+        const intervalId = setInterval(() => {
+            const nowVerified = !!settings.store.sessionToken;
+            if (nowVerified !== verified) {
+                setVerified(nowVerified);
+                return;
+            }
+            if (budget && budget.resetAt && budget.resetAt - Date.now() <= 0) {
+                refreshWriteBudget();
+            } else {
+                tick();
+            }
+        }, 1000);
+        return () => clearInterval(intervalId);
+    }, [budget, verified]);
+
+    const onRefresh = () => {
+        setLoading(true);
+        refreshWriteBudget().finally(() => setLoading(false));
+    };
+
+    const refreshBtn = (
+        <Button size={Button.Sizes.SMALL} disabled={loading || !verified} onClick={onRefresh}>
+            {loading ? "Refreshing..." : "Refresh"}
+        </Button>
+    );
+
+    if (!verified) {
+        return (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <Forms.FormText type="description">Verify your Discord account to see your write budget.</Forms.FormText>
+                {refreshBtn}
+            </div>
+        );
+    }
+
+    const hasReading = !!budget && typeof budget.remaining === "number";
+    if (!hasReading) {
+        return (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <Forms.FormText type="description">Writes Remaining</Forms.FormText>
+                {refreshBtn}
+            </div>
+        );
+    }
+
+    const limit = budget!.limit ?? WRITE_BUDGET_MAX_WRITES;
+    const remaining = Math.max(0, budget!.remaining);
+    const pct = limit > 0 ? Math.max(0, Math.min(100, (remaining / limit) * 100)) : 0;
+    const exhausted = remaining === 0;
+    const low = !exhausted && remaining <= Math.ceil(limit * 0.2);
+    const barColor = exhausted ? "#DA373C" : (low ? "#F0B232" : "#5865F2");
+    const resetText = budget!.resetAt ? (formatResetIn(budget!.resetAt) || "Refreshing…") : "";
+
+    return (
+        <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: exhausted ? 600 : 400, color: exhausted ? "#DA373C" : undefined, opacity: exhausted ? 1 : 0.85 }}>
+                    {exhausted ? "Write budget exhausted" : "Writes Remaining"}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{remaining} / {limit}</span>
+            </div>
+            <div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 8 }}>
+                <div style={{ height: "100%", borderRadius: 999, width: `${pct}%`, background: barColor, transition: "width 400ms cubic-bezier(0.4,0,0.2,1), background 400ms ease" }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                {resetText ? <span style={{ fontSize: 12, opacity: 0.6 }}>{resetText}</span> : <span />}
+                {refreshBtn}
+            </div>
+        </div>
     );
 }
 
@@ -1319,6 +1530,14 @@ function CustomBadgesTab() {
                 <SessionTokenInput />
             </div>
 
+            <Forms.FormTitle tag="h5" style={{ marginBottom: 4 }}>Write Budget</Forms.FormTitle>
+            <Forms.FormText type="description" style={{ marginBottom: 8 }}>
+                Badge writes (set/switch/delete) are capped by the server and refill over time. Reads (viewing other people's badges) never count against this.
+            </Forms.FormText>
+            <div style={{ marginBottom: 16 }}>
+                <WriteBudgetPanel />
+            </div>
+
             <Forms.FormDivider style={{ margin: "20px 0" }} />
 
             {}
@@ -1527,10 +1746,16 @@ export async function setMyBadge(badgeId: string, imageUrl: string, description:
     try {
         const res = await VencordNative.pluginHelpers.CustomBadges.setBadge(me.id, badgeId, imageUrl, description, getMyBadgeStyle(), settings.store.sessionToken, settings.store.apiBaseUrl);
         cache.delete(me.id);
+        updateWriteBudgetAfterWrite(res?.writeBudget);
         console.log("[CustomBadges] Badge set:", res);
     } catch (e) {
         console.error("[CustomBadges] Failed to set badge:", e);
         showBadgeErrorToast(describeBadgeApiError(e));
+        // A rejected write (e.g. budget exhausted) doesn't come back with a
+        // writeBudget payload, so pull a fresh read-only reading to make
+        // sure "X / 30" reflects reality (0/30, correct resetAt) rather
+        // than the stale pre-attempt number.
+        refreshWriteBudget();
     }
 }
 
@@ -1565,12 +1790,14 @@ export async function switchToBadge(id: string) {
     const me = UserStore.getCurrentUser();
     if (!me) return;
     try {
-        await VencordNative.pluginHelpers.CustomBadges.setActiveBadge(me.id, id, settings.store.sessionToken, settings.store.apiBaseUrl);
+        const res = await VencordNative.pluginHelpers.CustomBadges.setActiveBadge(me.id, id, settings.store.sessionToken, settings.store.apiBaseUrl);
         cache.delete(me.id);
+        updateWriteBudgetAfterWrite(res?.writeBudget);
         Toasts.show({ id: Toasts.genId(), type: Toasts.Type.SUCCESS, message: "Switched active badge" });
     } catch (e) {
         console.error("[CustomBadges] Failed to switch active badge:", e);
         showBadgeErrorToast(describeBadgeApiError(e));
+        refreshWriteBudget();
     }
 }
 
@@ -1611,11 +1838,13 @@ export async function deleteBadgeSlot(id: string) {
     const me = UserStore.getCurrentUser();
     if (me) {
         try {
-            await VencordNative.pluginHelpers.CustomBadges.deleteBadge(me.id, id, settings.store.sessionToken, settings.store.apiBaseUrl);
+            const res = await VencordNative.pluginHelpers.CustomBadges.deleteBadge(me.id, id, settings.store.sessionToken, settings.store.apiBaseUrl);
             cache.delete(me.id);
+            updateWriteBudgetAfterWrite(res?.writeBudget);
         } catch (e) {
             console.error("[CustomBadges] Failed to delete badge:", e);
             showBadgeErrorToast(describeBadgeApiError(e));
+            refreshWriteBudget();
         }
     }
 
@@ -2712,7 +2941,11 @@ export default definePlugin({
             verifyAccount: verifyDiscordAccount,
             revokeSessionToken,
             switchToBadge,
-            deleteBadgeSlot
+            deleteBadgeSlot,
+            getWriteBudget,
+            subscribeWriteBudget,
+            refreshWriteBudget,
+            writeBudgetMaxWrites: WRITE_BUDGET_MAX_WRITES
         });
 
         const handleDashboardRoute = () => {
@@ -2727,7 +2960,8 @@ export default definePlugin({
             onRouteChanged();
         };
 
-        FluxDispatcher.subscribe("ROUTE_CHANGED", handleDashboardRoute);
+        routeChangedHandler = handleDashboardRoute;
+        FluxDispatcher.subscribe("ROUTE_CHANGED", routeChangedHandler);
         onRouteChanged();
 
         SettingsPlugin.customEntries.push({
@@ -2753,9 +2987,14 @@ export default definePlugin({
         const mapIdx = SettingsPlugin.settingsSectionMap?.findIndex(e => e[1] === "vencord_custom_badges") ?? -1;
         if (mapIdx !== -1) SettingsPlugin.settingsSectionMap?.splice(mapIdx, 1);
 
-        FluxDispatcher.unsubscribe("ROUTE_CHANGED", onRouteChanged);
+        if (routeChangedHandler) {
+            FluxDispatcher.unsubscribe("ROUTE_CHANGED", routeChangedHandler);
+            routeChangedHandler = null;
+        }
         buttonRegistry.unregister("user-dashboard");
         restoreDefaultView();
+
+        unwireDashboardWriteBudget();
     },
 
     patches: [
