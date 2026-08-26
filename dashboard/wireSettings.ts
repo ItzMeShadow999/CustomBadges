@@ -1,8 +1,9 @@
 import { getDashboardBridge } from "./bridge";
 
-
 let writeBudgetIntervalId: ReturnType<typeof setInterval> | null = null;
 let unsubscribeWriteBudget: (() => void) | null = null;
+
+let unsubscribeSettingsChange: (() => void) | null = null;
 
 function formatResetIn(resetAt: number): string {
     const msLeft = resetAt - Date.now();
@@ -11,7 +12,6 @@ function formatResetIn(resetAt: number): string {
     const m = Math.floor((msLeft % 3_600_000) / 60_000);
     return `Resets in ${h > 0 ? `${h}h ` : ""}${m}m`;
 }
-
 
 export function unwireDashboardWriteBudget() {
     if (writeBudgetIntervalId !== null) {
@@ -24,6 +24,13 @@ export function unwireDashboardWriteBudget() {
     }
 }
 
+export function unwireDashboardSettingsSync() {
+    if (unsubscribeSettingsChange) {
+        unsubscribeSettingsChange();
+        unsubscribeSettingsChange = null;
+    }
+}
+
 export function wireDashboardSettings(root: HTMLElement) {
     const bridge = getDashboardBridge();
     if (!bridge) {
@@ -33,7 +40,55 @@ export function wireDashboardSettings(root: HTMLElement) {
 
     const { settings } = bridge;
 
+    unwireDashboardSettingsSync();
+
     const $ = <T extends HTMLElement>(id: string) => root.querySelector(`#${id}`) as T | null;
+
+    const applyButtons = [
+        $<HTMLButtonElement>("ub-apply-badge-changes-badges"),
+        $<HTMLButtonElement>("ub-apply-badge-changes-style")
+    ].filter((b): b is HTMLButtonElement => !!b);
+    const applyStatuses = [
+        $<HTMLElement>("ub-apply-status-badges"),
+        $<HTMLElement>("ub-apply-status-style")
+    ].filter((s): s is HTMLElement => !!s);
+
+    function renderApplyState() {
+        if (!applyButtons.length) return;
+        const hasBadge = !!(settings.store.myBadgeImageUrl && settings.store.myBadgeName);
+        const pending = hasBadge && !!(bridge as any).hasPendingBadgeChanges?.();
+
+        applyButtons.forEach(btn => {
+            if (btn.dataset.busy === "1") return;
+            btn.disabled = !hasBadge || !pending;
+        });
+        applyStatuses.forEach(el => {
+            el.textContent = !hasBadge
+                ? "Set your badge image and name to enable this"
+                : pending
+                    ? "You have unpublished changes"
+                    : "Everything below is already published";
+            el.classList.toggle("ub-pending", pending);
+        });
+    }
+
+    async function onApplyBadgeChanges(btn: HTMLButtonElement) {
+        if (btn.disabled) return;
+        applyButtons.forEach(b => { b.dataset.busy = "1"; b.disabled = true; });
+        const original = btn.textContent;
+        btn.textContent = "Applying...";
+        try {
+            await (bridge as any).applyBadgeChanges?.();
+        } finally {
+            applyButtons.forEach(b => {
+                delete b.dataset.busy;
+                b.textContent = "Apply Badge Changes";
+            });
+            renderApplyState();
+        }
+    }
+
+    applyButtons.forEach(btn => btn.addEventListener("click", () => onApplyBadgeChanges(btn)));
 
     const apiBaseUrl = $<HTMLInputElement>("ub-api-base-url");
     const badgeImageUrl = $<HTMLInputElement>("ub-badge-image-url");
@@ -221,6 +276,7 @@ export function wireDashboardSettings(root: HTMLElement) {
     wireChoiceGroup("ub-icon-shape-group", "ub-icon-shape", val => {
         settings.store.badgeIconShape = val;
         updatePreview();
+        renderApplyState();
     });
 
     iconSize?.addEventListener("input", () => {
@@ -229,11 +285,13 @@ export function wireDashboardSettings(root: HTMLElement) {
     iconSize?.addEventListener("change", () => {
         settings.store.badgeIconSize = Number(iconSize.value);
         updatePreview();
+        renderApplyState();
     });
 
     wireChoiceGroup("ub-hover-effect-group", "ub-hover-effect", val => {
         settings.store.badgeHoverEffect = val;
         updateGlowFieldState();
+        renderApplyState();
     });
 
     glowColor?.addEventListener("input", () => {
@@ -241,12 +299,14 @@ export function wireDashboardSettings(root: HTMLElement) {
     });
     glowColor?.addEventListener("change", () => {
         settings.store.badgeGlowColor = glowColor.value;
+        renderApplyState();
     });
 
     wireChoiceGroup("ub-bg-mode-group", "ub-bg-mode", val => {
         settings.store.popupBackgroundMode = val;
         updateGradientFieldsState();
         updatePreview();
+        renderApplyState();
     });
 
     gradientMain?.addEventListener("input", () => {
@@ -255,6 +315,7 @@ export function wireDashboardSettings(root: HTMLElement) {
     gradientMain?.addEventListener("change", () => {
         settings.store.popupGradientMain = gradientMain.value;
         updatePreview();
+        renderApplyState();
     });
 
     gradientSecondary?.addEventListener("input", () => {
@@ -263,6 +324,7 @@ export function wireDashboardSettings(root: HTMLElement) {
     gradientSecondary?.addEventListener("change", () => {
         settings.store.popupGradientSecondary = gradientSecondary.value;
         updatePreview();
+        renderApplyState();
     });
 
     nameColor?.addEventListener("input", () => {
@@ -271,10 +333,12 @@ export function wireDashboardSettings(root: HTMLElement) {
     nameColor?.addEventListener("change", () => {
         settings.store.badgeNameColor = nameColor.value;
         updatePreview();
+        renderApplyState();
     });
 
     wireChoiceGroup("ub-popup-anim-group", "ub-popup-anim", val => {
         settings.store.popupAnimationStyle = val;
+        renderApplyState();
     });
 
     const previewEmpties = Array.from(root.querySelectorAll<HTMLElement>(".ub-preview-empty"));
@@ -392,6 +456,7 @@ export function wireDashboardSettings(root: HTMLElement) {
         setChoiceGroupValue("ub-popup-anim-group", "ub-popup-anim", settings.store.popupAnimationStyle ?? "fade");
 
         updatePreview();
+        renderApplyState();
     }
 
     syncFromStore();
@@ -404,12 +469,14 @@ export function wireDashboardSettings(root: HTMLElement) {
     badgeImageUrl?.addEventListener("change", () => {
         settings.store.myBadgeImageUrl = badgeImageUrl.value;
         updatePreview();
+        renderApplyState();
     });
 
     badgeName?.addEventListener("input", updatePreview);
     badgeName?.addEventListener("change", () => {
         settings.store.myBadgeName = badgeName.value;
         updatePreview();
+        renderApplyState();
     });
 
     $("ub-share-badge")?.addEventListener("click", () => bridge.shareMyBadge());
@@ -445,9 +512,10 @@ export function wireDashboardSettings(root: HTMLElement) {
     $("ub-make-pack")?.addEventListener("click", () => bridge.makePack());
     $("ub-browse-packs")?.addEventListener("click", () => bridge.browsePacks());
 
+    unsubscribeSettingsChange = (bridge as any).subscribeSettingsChange?.(() => syncFromStore()) ?? null;
+
     wireWriteBudget(root, bridge);
 }
-
 
 function wireWriteBudget(root: HTMLElement, bridge: any) {
     const $ = <T extends HTMLElement>(id: string) => root.querySelector(`#${id}`) as T | null;
@@ -462,7 +530,6 @@ function wireWriteBudget(root: HTMLElement, bridge: any) {
     const refreshBtnUnverified = $<HTMLButtonElement>("ub-writebudget-refresh-unverified");
 
     if (!unverifiedEl || !contentEl || !labelEl || !countEl || !barEl || !resetEl) return;
-
 
     if (writeBudgetIntervalId !== null) clearInterval(writeBudgetIntervalId);
     if (unsubscribeWriteBudget) unsubscribeWriteBudget();
@@ -505,8 +572,6 @@ function wireWriteBudget(root: HTMLElement, bridge: any) {
         barEl!.style.width = `${pct}%`;
         barEl!.style.background = barColor;
 
-
-
         resetEl!.textContent = budget.resetAt ? (formatResetIn(budget.resetAt) || "Refreshing…") : "";
     }
 
@@ -517,6 +582,7 @@ function wireWriteBudget(root: HTMLElement, bridge: any) {
     function tick() {
         const budget = (bridge as any).getWriteBudget?.() ?? null;
         if (budget?.resetAt && budget.resetAt - Date.now() <= 0) {
+
             (bridge as any).refreshWriteBudget?.();
         } else {
             render();
