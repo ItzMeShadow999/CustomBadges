@@ -138,6 +138,69 @@ const BUILTIN_PRESETS = [
     }
 ];
 let suppressPublishOnChange = false;
+
+
+export type WriteBudget = { remaining: number; limit: number; windowHours: number; resetAt: number; } | null;
+
+export const WRITE_BUDGET_MAX_WRITES = 30;
+const WRITE_BUDGET_TIMEOUT_MS = 10_000;
+
+let writeBudget: WriteBudget = null;
+const writeBudgetListeners = new Set<(budget: WriteBudget) => void>();
+
+export function getWriteBudget(): WriteBudget {
+    return writeBudget;
+}
+
+export function setWriteBudget(budget: WriteBudget) {
+    writeBudget = budget;
+    writeBudgetListeners.forEach(fn => { try { fn(budget); } catch { } });
+}
+
+export function subscribeWriteBudget(fn: (budget: WriteBudget) => void) {
+    writeBudgetListeners.add(fn);
+    return () => writeBudgetListeners.delete(fn);
+}
+
+
+async function apiGetWriteBudget(): Promise<WriteBudget> {
+    const token = settings.store.sessionToken;
+    if (!token) throw new Error("NOT_VERIFIED:Verify your Discord account first");
+
+    const base = settings.store.apiBaseUrl || "https://custom-badges.shadow-164.workers.dev";
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), WRITE_BUDGET_TIMEOUT_MS);
+    try {
+        const res = await fetch(`${base}/self/writes`, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal
+        });
+        if (!res.ok) throw new Error(`SERVER_ERROR:${res.status}`);
+        return await res.json(); 
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+
+export async function refreshWriteBudget(): Promise<WriteBudget> {
+    try {
+        const budget = await apiGetWriteBudget();
+        setWriteBudget(budget);
+        return budget;
+    } catch {
+
+        return writeBudget;
+    }
+}
+
+
+async function updateWriteBudgetAfterWrite(responseWriteBudget: WriteBudget | undefined) {
+    if (responseWriteBudget) setWriteBudget(responseWriteBudget);
+    else await refreshWriteBudget();
+}
+
 const settings = definePluginSettings({
     apiBaseUrl: {
         type: OptionType.STRING,
@@ -696,6 +759,107 @@ function SwitchField({ settingKey, titleOverride, forceUpdate }: {
         }}/>
         </div>);
 }
+function formatResetIn(resetAt: number): string {
+    const msLeft = resetAt - Date.now();
+    if (msLeft <= 0) return "";
+    const h = Math.floor(msLeft / 3_600_000);
+    const m = Math.floor((msLeft % 3_600_000) / 60_000);
+    return `Resets in ${h > 0 ? `${h}h ` : ""}${m}m`;
+}
+
+function WriteBudgetPanel() {
+    const [budget, setBudgetState] = useState<WriteBudget>(getWriteBudget());
+    const [loading, setLoading] = useState(false);
+    const [verified, setVerified] = useState(!!settings.store.sessionToken);
+    const [, tick] = useReducer(x => x + 1, 0);
+
+    useEffect(() => {
+
+        const unsubscribe = subscribeWriteBudget(setBudgetState);
+
+        if (settings.store.sessionToken) refreshWriteBudget();
+        return unsubscribe;
+    }, []);
+
+    useEffect(() => {
+
+        if (verified) refreshWriteBudget();
+    }, [verified]);
+
+    useEffect(() => {
+
+        const intervalId = setInterval(() => {
+            const nowVerified = !!settings.store.sessionToken;
+            if (nowVerified !== verified) {
+                setVerified(nowVerified);
+                return;
+            }
+            if (budget && budget.resetAt && budget.resetAt - Date.now() <= 0) {
+                refreshWriteBudget();
+            } else {
+                tick();
+            }
+        }, 1000);
+        return () => clearInterval(intervalId);
+    }, [budget, verified]);
+
+    const onRefresh = () => {
+        setLoading(true);
+        refreshWriteBudget().finally(() => setLoading(false));
+    };
+
+    const refreshBtn = (
+        <Button size={Button.Sizes.SMALL} disabled={loading || !verified} onClick={onRefresh}>
+            {loading ? "Refreshing..." : "Refresh"}
+        </Button>
+    );
+
+    if (!verified) {
+        return (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <Forms.FormText type="description">Verify your Discord account to see your write budget.</Forms.FormText>
+                {refreshBtn}
+            </div>
+        );
+    }
+
+    const hasReading = !!budget && typeof budget.remaining === "number";
+    if (!hasReading) {
+        return (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <Forms.FormText type="description">Writes Remaining</Forms.FormText>
+                {refreshBtn}
+            </div>
+        );
+    }
+
+    const limit = budget!.limit ?? WRITE_BUDGET_MAX_WRITES;
+    const remaining = Math.max(0, budget!.remaining);
+    const pct = limit > 0 ? Math.max(0, Math.min(100, (remaining / limit) * 100)) : 0;
+    const exhausted = remaining === 0;
+    const low = !exhausted && remaining <= Math.ceil(limit * 0.2);
+    const barColor = exhausted ? "#DA373C" : (low ? "#F0B232" : "#5865F2");
+    const resetText = budget!.resetAt ? (formatResetIn(budget!.resetAt) || "Refreshing…") : "";
+
+    return (
+        <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: exhausted ? 600 : 400, color: exhausted ? "#DA373C" : undefined, opacity: exhausted ? 1 : 0.85 }}>
+                    {exhausted ? "Write budget exhausted" : "Writes Remaining"}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{remaining} / {limit}</span>
+            </div>
+            <div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 8 }}>
+                <div style={{ height: "100%", borderRadius: 999, width: `${pct}%`, background: barColor, transition: "width 400ms cubic-bezier(0.4,0,0.2,1), background 400ms ease" }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                {resetText ? <span style={{ fontSize: 12, opacity: 0.6 }}>{resetText}</span> : <span />}
+                {refreshBtn}
+            </div>
+        </div>
+    );
+}
+
 function CustomBadgesTab() {
     const hasBadge = !!(settings.store.myBadgeImageUrl && settings.store.myBadgeName);
     const [, bump] = useReducer(x => x + 1, 0);
@@ -715,6 +879,14 @@ function CustomBadgesTab() {
             <SettingField settingKey="verifyAccount" titleOverride="Verify Discord Account" forceUpdate={forceUpdate}/>
             <SettingField settingKey="sessionToken" titleOverride="Session Token" forceUpdate={forceUpdate}/>
             <SettingField settingKey="revokeToken" titleOverride="Revoke Token" forceUpdate={forceUpdate}/>
+
+            <Forms.FormTitle tag="h5" style={{ marginBottom: 4 }}>Write Budget</Forms.FormTitle>
+            <Forms.FormText type="description" style={{ marginBottom: 8 }}>
+                Badge writes (set/switch/delete) are capped by the server and refill over time. Reads (viewing other people's badges) never count against this.
+            </Forms.FormText>
+            <div style={{ marginBottom: 16 }}>
+                <WriteBudgetPanel />
+            </div>
 
             <Forms.FormDivider style={{ margin: "20px 0" }}/>
 
@@ -902,6 +1074,8 @@ export async function revokeSessionToken() {
     try {
         await VencordNative.pluginHelpers.CustomBadges.revokeOwnToken(settings.store.sessionToken, settings.store.apiBaseUrl);
         settings.store.sessionToken = "";
+
+        setWriteBudget(null);
         Toasts.show({ id: Toasts.genId(), type: Toasts.Type.SUCCESS, message: "Token revoked - re-verify to publish badge changes again" });
     } catch (e) {
         console.error("[CustomBadges] Failed to revoke token:", e);
@@ -927,9 +1101,7 @@ function SessionTokenInput() {
     function handleBlur() {
         setFocused(false);
         if (!value) return;
-        // mount one frame with the letters still showing, then flip to
-        // masked so the letter->dot transition actually animates instead
-        // of snapping straight to dots.
+
         requestAnimationFrame(() => setMasked(true));
     }
 
@@ -1024,12 +1196,15 @@ export async function setMyBadge(badgeId: string, imageUrl: string, description:
     try {
         const res = await VencordNative.pluginHelpers.CustomBadges.setBadge(me.id, badgeId, imageUrl, description, getMyBadgeStyle(), settings.store.sessionToken, settings.store.apiBaseUrl);
         cache.delete(me.id);
+        updateWriteBudgetAfterWrite(res?.writeBudget);
         console.log("[CustomBadges] Badge set:", res);
     }
     catch (e) {
         console.error("[CustomBadges] Failed to set badge:", e);
         if (isNotVerifiedError(e))
             Toasts.show({ id: Toasts.genId(), type: Toasts.Type.FAILURE, message: "Verify your Discord account first (see the \"Verify Discord Account\" button in settings)" });
+
+        refreshWriteBudget();
     }
 }
 function loadBadgeFieldsIntoSettings(entry: BadgeEntry) {
@@ -1059,8 +1234,9 @@ async function switchToBadge(id: string) {
     if (!me)
         return;
     try {
-        await VencordNative.pluginHelpers.CustomBadges.setActiveBadge(me.id, id, settings.store.sessionToken, settings.store.apiBaseUrl);
+        const res = await VencordNative.pluginHelpers.CustomBadges.setActiveBadge(me.id, id, settings.store.sessionToken, settings.store.apiBaseUrl);
         cache.delete(me.id);
+        updateWriteBudgetAfterWrite(res?.writeBudget);
         Toasts.show({ id: Toasts.genId(), type: Toasts.Type.SUCCESS, message: "Switched active badge" });
     }
     catch (e) {
@@ -1070,6 +1246,7 @@ async function switchToBadge(id: string) {
                 ? "Verify your Discord account first (see the \"Verify Discord Account\" button in settings)"
                 : "Couldn't switch badge - check your connection"
         });
+        refreshWriteBudget();
     }
 }
 function createNewBadgeSlot() {
@@ -1100,13 +1277,15 @@ async function deleteBadgeSlot(id: string) {
     const me = UserStore.getCurrentUser();
     if (me) {
         try {
-            await VencordNative.pluginHelpers.CustomBadges.deleteBadge(me.id, id, settings.store.sessionToken, settings.store.apiBaseUrl);
+            const res = await VencordNative.pluginHelpers.CustomBadges.deleteBadge(me.id, id, settings.store.sessionToken, settings.store.apiBaseUrl);
             cache.delete(me.id);
+            updateWriteBudgetAfterWrite(res?.writeBudget);
         }
         catch (e) {
             console.error("[CustomBadges] Failed to delete badge:", e);
             if (isNotVerifiedError(e))
                 Toasts.show({ id: Toasts.genId(), type: Toasts.Type.FAILURE, message: "Verify your Discord account first (see the \"Verify Discord Account\" button in settings)" });
+            refreshWriteBudget();
         }
     }
     if (getActiveBadgeId() === id) {
