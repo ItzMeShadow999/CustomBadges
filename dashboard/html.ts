@@ -304,6 +304,40 @@ export function dashboardHtml(presetLabels: string[] = []): string {
                 color: #ff5c60;
             }
 
+            #ub-dashboard-settings .ub-btn-success {
+                background: var(--ub-positive);
+                border-color: var(--ub-positive);
+                color: #ffffff;
+            }
+
+            #ub-dashboard-settings .ub-btn-success:hover {
+                background: #1a8046;
+                border-color: #1a8046;
+                color: #ffffff;
+            }
+
+            #ub-dashboard-settings .ub-btn:disabled {
+                cursor: default;
+                opacity: 0.5;
+                transform: none !important;
+            }
+
+            #ub-dashboard-settings .ub-apply-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+
+            #ub-dashboard-settings .ub-apply-status {
+                font-size: 13px;
+                color: var(--ub-text-faint);
+            }
+
+            #ub-dashboard-settings .ub-apply-status.ub-pending {
+                color: var(--ub-warning);
+            }
+
             #ub-dashboard-settings .ub-btn-row {
                 display: flex;
                 flex-wrap: wrap;
@@ -893,6 +927,12 @@ export function dashboardHtml(presetLabels: string[] = []): string {
                             </div>
                         </div>
 
+                        <div class="ub-section" id="ub-apply-section-badges">
+                            <div class="ub-apply-row">
+                                <button id="ub-apply-badge-changes-badges" class="ub-btn ub-btn-success" type="button" disabled>Apply Badge Changes</button>
+                                <span id="ub-apply-status-badges" class="ub-apply-status">Set your badge image and name to enable this</span>
+                            </div>
+                        </div>
 
                         <div class="ub-section">
                             <div class="ub-section-head">
@@ -1062,7 +1102,7 @@ export function dashboardHtml(presetLabels: string[] = []): string {
                                 <input type="hidden" id="ub-popup-anim" value="fade" />
                             </div>
                         </div>
-                        <div class="ub-section" style="margin-bottom: 0;">
+                        <div class="ub-section">
                             <div class="ub-section-head">
                                 <div class="ub-section-icon">${icon.eye}</div>
                                 <div class="ub-eyebrow">Live Preview</div>
@@ -1085,6 +1125,13 @@ export function dashboardHtml(presetLabels: string[] = []): string {
                                         Couldn't sample colors from this image, showing the flat fallback background instead. This can happen if the host blocks cross-origin image reads. What others see may look different from this preview.
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div class="ub-section" id="ub-apply-section-style" style="margin-bottom: 0;">
+                            <div class="ub-apply-row">
+                                <button id="ub-apply-badge-changes-style" class="ub-btn ub-btn-success" type="button" disabled>Apply Badge Changes</button>
+                                <span id="ub-apply-status-style" class="ub-apply-status">Set your badge image and name to enable this</span>
                             </div>
                         </div>
                     </div>
