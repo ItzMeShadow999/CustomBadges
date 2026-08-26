@@ -10,7 +10,7 @@ import { buttonRegistry } from "./dashboard/buttonRegistry";
 import { renderDashboardView, restoreDefaultView } from "./dashboard/dashboardView";
 import { setDashboardActive, state as dashboardState } from "./dashboard/types";
 import { setDashboardBridge } from "./dashboard/bridge";
-import { unwireDashboardWriteBudget } from "./dashboard/wireSettings";
+import { unwireDashboardSettingsSync, unwireDashboardWriteBudget } from "./dashboard/wireSettings";
 
 const BADGE_CLASS = "custom-badge-injected";
 const STYLE_ID = "custom-badges-style";
@@ -251,10 +251,9 @@ let suppressPublishOnChange = false;
 
 const popupSettingsDisabled = () => settings.store.badgeMode === "vencord";
 
-
 export type WriteBudget = { remaining: number; limit: number; windowHours: number; resetAt: number; } | null;
 
-export const WRITE_BUDGET_MAX_WRITES = 30;
+export const WRITE_BUDGET_MAX_WRITES = 30; 
 const WRITE_BUDGET_TIMEOUT_MS = 10_000;
 
 let writeBudget: WriteBudget = null;
@@ -273,7 +272,6 @@ export function subscribeWriteBudget(fn: (budget: WriteBudget) => void) {
     writeBudgetListeners.add(fn);
     return () => writeBudgetListeners.delete(fn);
 }
-
 
 async function apiGetWriteBudget(): Promise<WriteBudget> {
     const token = settings.store.sessionToken;
@@ -295,7 +293,6 @@ async function apiGetWriteBudget(): Promise<WriteBudget> {
     }
 }
 
-
 export async function refreshWriteBudget(): Promise<WriteBudget> {
     try {
         const budget = await apiGetWriteBudget();
@@ -306,7 +303,6 @@ export async function refreshWriteBudget(): Promise<WriteBudget> {
         return writeBudget;
     }
 }
-
 
 async function updateWriteBudgetAfterWrite(responseWriteBudget: WriteBudget | undefined) {
     if (responseWriteBudget) setWriteBudget(responseWriteBudget);
@@ -585,6 +581,26 @@ export const settings = definePluginSettings({
     }
 });
 
+const settingsChangeListeners = new Set<() => void>();
+
+function notifySettingsChanged() {
+    settingsChangeListeners.forEach(fn => fn());
+}
+
+export function subscribeSettingsChange(fn: () => void): () => void {
+    settingsChangeListeners.add(fn);
+    return () => settingsChangeListeners.delete(fn);
+}
+
+(settings as any).store = new Proxy(settings.store, {
+    set(target, prop, value, receiver) {
+        const changed = (target as any)[prop] !== value;
+        const result = Reflect.set(target, prop, value, receiver);
+        if (changed) notifySettingsChanged();
+        return result;
+    }
+});
+
 interface BadgeStyle {
     iconShape: string;
     iconSize: number;
@@ -838,7 +854,6 @@ function getCurrentBadgeSnapshot(): BadgeSnapshot | null {
     };
 }
 
-
 export function hasPendingBadgeChanges(): boolean {
     const current = getCurrentBadgeSnapshot();
     if (!current) return false;
@@ -1074,9 +1089,7 @@ function SessionTokenInput() {
                     pointerEvents: "none",
                     overflow: "hidden",
                     whiteSpace: "pre",
-                    
-                    
-                    
+
                     fontFamily: "var(--font-code, Consolas, 'Courier New', monospace)",
                     fontSize: "14px",
                     lineHeight: 1,
@@ -1673,7 +1686,11 @@ export function updateMyBadgeFromSettings(): boolean {
     return true;
 }
 
-
+// Explicit "publish whatever's currently in the editor" action for the
+// Apply Badge Changes button (Settings + Dashboard). Wraps
+// updateMyBadgeFromSettings with the user-facing toasts/validation the
+// button needs, since the settings-store onChange handlers no longer
+// auto-publish on every keystroke.
 export function applyBadgeChanges(): boolean {
     const { myBadgeImageUrl, myBadgeName } = settings.store;
     if (!myBadgeImageUrl || !myBadgeName) {
@@ -1774,7 +1791,9 @@ async function syncMyBadgesFromServer() {
         } finally {
             suppressPublishOnChange = false;
         }
-
+        // This just mirrors what's already published on the server into
+        // local fields - it isn't a local edit, so don't let it register
+        // as a pending change the Apply button would offer to "publish".
         lastPublishedSnapshot = getCurrentBadgeSnapshot();
     }
 }
@@ -1791,7 +1810,10 @@ export async function setMyBadge(badgeId: string, imageUrl: string, description:
     } catch (e) {
         console.error("[CustomBadges] Failed to set badge:", e);
         showBadgeErrorToast(describeBadgeApiError(e));
-
+        // A rejected write (e.g. budget exhausted) doesn't come back with a
+        // writeBudget payload, so pull a fresh read-only reading to make
+        // sure "X / 30" reflects reality (0/30, correct resetAt) rather
+        // than the stale pre-attempt number.
         refreshWriteBudget();
     }
 }
@@ -2961,6 +2983,8 @@ export default definePlugin({
         activeBadgeMode = settings.store.badgeMode || "original";
         startBadgeMode(activeBadgeMode);
 
+        // Seed the "last published" snapshot from whatever's already saved
+
         lastPublishedSnapshot = getCurrentBadgeSnapshot();
 
         setDashboardBridge({
@@ -2988,7 +3012,9 @@ export default definePlugin({
             getWriteBudget,
             subscribeWriteBudget,
             refreshWriteBudget,
-            writeBudgetMaxWrites: WRITE_BUDGET_MAX_WRITES
+            writeBudgetMaxWrites: WRITE_BUDGET_MAX_WRITES,
+
+            subscribeSettingsChange
         });
 
         const handleDashboardRoute = () => {
@@ -3037,8 +3063,9 @@ export default definePlugin({
         buttonRegistry.unregister("user-dashboard");
         restoreDefaultView();
 
-
         unwireDashboardWriteBudget();
+
+        unwireDashboardSettingsSync();
     },
 
     patches: [
