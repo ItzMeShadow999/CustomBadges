@@ -23,10 +23,7 @@ export interface DashboardBridge {
     makePack: () => void;
     browsePacks: () => void;
     onBadgeModeChange: (mode: string) => void;
-    verifyAccount: () => void;
-    revokeSessionToken: () => Promise<void>;
-    switchToBadge: (id: string) => Promise<void>;
-    deleteBadgeSlot: (id: string) => Promise<void>;
+    subscribeSettingsChange: (fn: () => void) => () => void;
 }
 
 let bridge: DashboardBridge | null = null;
@@ -34,6 +31,7 @@ let bridge: DashboardBridge | null = null;
 export function setDashboardBridge(b: DashboardBridge) {
     bridge = b;
 }
+
 
 export function getDashboardBridge(): DashboardBridge | null {
     return bridge;
