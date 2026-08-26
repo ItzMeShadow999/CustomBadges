@@ -22,11 +22,6 @@ const PACKS_REPO_URL = "https://github.com/ItzMeShadow999/Badges";
 const BADGE_EXPIRY_WARNING_DAYS = 14;
 let expiryWarningShownThisSession = false;
 
-// The actual ROUTE_CHANGED listener registered in start(), kept at module
-// scope so stop() can unsubscribe the *same* function reference. Previously
-// stop() unsubscribed `onRouteChanged` (a different, never-subscribed
-// function) which was a no-op - the real listener stuck around across
-// plugin restarts and stacked up an extra ROUTE_CHANGED handler each time.
 let routeChangedHandler: (() => void) | null = null;
 
 function normalizeBadgeName(name: string): string {
@@ -72,12 +67,7 @@ function describeBadgeApiError(e: unknown): string {
             return `Slow down a little - try again in ${seconds}s`;
         }
         case "SERVER_RATE_LIMIT": {
-            // The server multiplexes two different 429s onto this same kind:
-            // the short 10s burst limiter, and the 30-write/5h write budget
-            // being exhausted. Both carry a retry-after in seconds, but a
-            // multi-minute value is almost certainly the write budget, not
-            // the burst limiter, so phrase it accordingly instead of saying
-            // "try again in 14400s".
+
             const seconds = detail && /^\d+$/.test(detail) ? Number(detail) : null;
             if (seconds === null) return "Rate limited by the badge server - try again shortly";
             if (seconds > 90) {
@@ -261,17 +251,10 @@ let suppressPublishOnChange = false;
 
 const popupSettingsDisabled = () => settings.store.badgeMode === "vencord";
 
-// --- Write budget (shared client-side state) ------------------------------
-// The server (worker.js) is the sole source of truth for the 30-writes /
-// 5-hour rolling window - this is just a thin cache of its last reading so
-// the Settings UI doesn't have to hit GET /self/writes on every render.
-// Mirrors the equivalent state on the CustomBadges reference plugin
-// (getWriteBudget/setWriteBudget/refreshWriteBudget/subscribeWriteBudget),
-// reproduced here rather than imported since Vencord plugins can't import
-// across BdApi/Vencord module boundaries.
+
 export type WriteBudget = { remaining: number; limit: number; windowHours: number; resetAt: number; } | null;
 
-export const WRITE_BUDGET_MAX_WRITES = 30; // fallback label only - the server's `limit` field is authoritative
+export const WRITE_BUDGET_MAX_WRITES = 30;
 const WRITE_BUDGET_TIMEOUT_MS = 10_000;
 
 let writeBudget: WriteBudget = null;
@@ -291,9 +274,7 @@ export function subscribeWriteBudget(fn: (budget: WriteBudget) => void) {
     return () => writeBudgetListeners.delete(fn);
 }
 
-// Read-only - doesn't consume a write. Talked to directly (not through
-// VencordNative.pluginHelpers) since it's a simple authenticated GET; POSTs
-// that actually write badges still go through the existing native helpers.
+
 async function apiGetWriteBudget(): Promise<WriteBudget> {
     const token = settings.store.sessionToken;
     if (!token) throw new Error("NOT_VERIFIED:Verify your Discord account first");
@@ -308,30 +289,25 @@ async function apiGetWriteBudget(): Promise<WriteBudget> {
             signal: controller.signal
         });
         if (!res.ok) throw new Error(`SERVER_ERROR:${res.status}`);
-        return await res.json(); // { remaining, limit, windowHours, resetAt }
+        return await res.json(); 
     } finally {
         clearTimeout(timeout);
     }
 }
 
-// Central place the Settings panel reads through - fetches a fresh reading,
-// caches it, and notifies subscribers so everything stays in sync without
-// polling.
+
 export async function refreshWriteBudget(): Promise<WriteBudget> {
     try {
         const budget = await apiGetWriteBudget();
         setWriteBudget(budget);
         return budget;
     } catch {
-        // Not verified yet, or a network hiccup - leave any previous
-        // reading in place rather than clobbering it with an error state.
+
         return writeBudget;
     }
 }
 
-// Called after a successful write. Prefers the writeBudget the server
-// already returned inline with the write (no extra request); only falls
-// back to a fresh GET /self/writes if the response didn't include one.
+
 async function updateWriteBudgetAfterWrite(responseWriteBudget: WriteBudget | undefined) {
     if (responseWriteBudget) setWriteBudget(responseWriteBudget);
     else await refreshWriteBudget();
@@ -378,14 +354,12 @@ export const settings = definePluginSettings({
     myBadgeImageUrl: {
         type: OptionType.STRING,
         description: "Your badge image URL. Must be hosted on one of: i.imgur.com, i.ibb.co, i.pinimg.com, files.catbox.moe, cdn.discordapp.com, media.discordapp.net. Other hosts get silently blocked by Discord and your badge won't load.",
-        default: "",
-        onChange: () => { if (!suppressPublishOnChange) updateMyBadgeFromSettings(); }
+        default: ""
     },
     myBadgeName: {
         type: OptionType.STRING,
         description: "Your badge name, shown on hover and in the click popup",
-        default: "",
-        onChange: () => { if (!suppressPublishOnChange) updateMyBadgeFromSettings(); }
+        default: ""
     },
     badgePreview: {
         type: OptionType.COMPONENT,
@@ -458,8 +432,7 @@ export const settings = definePluginSettings({
     appendVencordTag: {
         type: OptionType.BOOLEAN,
         description: "Add a [Vencord] suffix after your badge name. Seen by everyone who views your badge.",
-        default: false,
-        onChange: () => { if (!suppressPublishOnChange) updateMyBadgeFromSettings(); }
+        default: false
     },
     popupBackgroundMode: {
         type: OptionType.SELECT,
@@ -469,22 +442,19 @@ export const settings = definePluginSettings({
             { label: "Sample (colors pulled from the badge image)", value: "sample" },
             { label: "Edit Gradient (pick your own colors)", value: "edit" }
         ],
-        disabled: popupSettingsDisabled,
-        onChange: () => { if (!suppressPublishOnChange) updateMyBadgeFromSettings(); }
+        disabled: popupSettingsDisabled
     },
     popupGradientMain: {
         type: OptionType.STRING,
         description: "Edit Gradient mode: main/base color (hex). Seen by everyone who views your badge.",
         default: "#1d1d1d",
-        disabled: () => popupSettingsDisabled() || settings.store.popupBackgroundMode !== "edit",
-        onChange: () => { if (!suppressPublishOnChange) updateMyBadgeFromSettings(); }
+        disabled: () => popupSettingsDisabled() || settings.store.popupBackgroundMode !== "edit"
     },
     popupGradientSecondary: {
         type: OptionType.STRING,
         description: "Edit Gradient mode: second/glow color (hex). Seen by everyone who views your badge.",
         default: "#2a2a38",
-        disabled: () => popupSettingsDisabled() || settings.store.popupBackgroundMode !== "edit",
-        onChange: () => { if (!suppressPublishOnChange) updateMyBadgeFromSettings(); }
+        disabled: () => popupSettingsDisabled() || settings.store.popupBackgroundMode !== "edit"
     },
     popupAnimationStyle: {
         type: OptionType.SELECT,
@@ -494,21 +464,18 @@ export const settings = definePluginSettings({
             { label: "Scale", value: "scale" },
             { label: "Slide", value: "slide" }
         ],
-        disabled: popupSettingsDisabled,
-        onChange: () => { if (!suppressPublishOnChange) updateMyBadgeFromSettings(); }
+        disabled: popupSettingsDisabled
     },
     badgeNameColor: {
         type: OptionType.STRING,
         description: "Text color for your badge name in the popup (hex). Seen by everyone who views your badge.",
         default: "#ffffff",
-        disabled: popupSettingsDisabled,
-        onChange: () => { if (!suppressPublishOnChange) updateMyBadgeFromSettings(); }
+        disabled: popupSettingsDisabled
     },
     badgeIconSize: {
         type: OptionType.NUMBER,
         description: "Size in pixels of your badge icon in the badge row. Seen by everyone who views your badge.",
-        default: 22,
-        onChange: () => { if (!suppressPublishOnChange) updateMyBadgeFromSettings(); }
+        default: 22
     },
     badgeIconShape: {
         type: OptionType.SELECT,
@@ -517,8 +484,7 @@ export const settings = definePluginSettings({
             { label: "Circle", value: "circle", default: true },
             { label: "Rounded square", value: "rounded" },
             { label: "Square", value: "square" }
-        ],
-        onChange: () => { if (!suppressPublishOnChange) updateMyBadgeFromSettings(); }
+        ]
     },
     badgeHoverEffect: {
         type: OptionType.SELECT,
@@ -527,15 +493,13 @@ export const settings = definePluginSettings({
             { label: "None", value: "none", default: true },
             { label: "Scale up", value: "scale" },
             { label: "Glow", value: "glow" }
-        ],
-        onChange: () => { if (!suppressPublishOnChange) updateMyBadgeFromSettings(); }
+        ]
     },
     badgeGlowColor: {
         type: OptionType.STRING,
         description: "Glow color used when Badge Hover Effect is set to Glow (hex). Seen by everyone who views your badge.",
         default: "#ffffff",
-        disabled: () => settings.store.badgeHoverEffect !== "glow",
-        onChange: () => { if (!suppressPublishOnChange) updateMyBadgeFromSettings(); }
+        disabled: () => settings.store.badgeHoverEffect !== "glow"
     },
     hideOwnBadge: {
         type: OptionType.BOOLEAN,
@@ -863,6 +827,25 @@ interface BadgeSnapshot {
 let lastPublishedSnapshot: BadgeSnapshot | null = null;
 let lastHistoryPushAt = 0;
 
+function getCurrentBadgeSnapshot(): BadgeSnapshot | null {
+    const { myBadgeImageUrl, myBadgeName } = settings.store;
+    if (!myBadgeImageUrl || !myBadgeName) return null;
+    return {
+        imageUrl: myBadgeImageUrl,
+        name: myBadgeName,
+        style: getMyBadgeStyle(),
+        prefs: getMyBadgePrefs()
+    };
+}
+
+
+export function hasPendingBadgeChanges(): boolean {
+    const current = getCurrentBadgeSnapshot();
+    if (!current) return false;
+    if (!lastPublishedSnapshot) return true;
+    return JSON.stringify(current) !== JSON.stringify(lastPublishedSnapshot);
+}
+
 function loadBadgeHistory(): BadgeSnapshot[] {
     try {
         const raw = localStorage.getItem(BADGE_HISTORY_KEY);
@@ -1024,9 +1007,7 @@ export async function revokeSessionToken() {
     try {
         await VencordNative.pluginHelpers.CustomBadges.revokeOwnToken(settings.store.sessionToken, settings.store.apiBaseUrl);
         settings.store.sessionToken = "";
-        // Token is gone - the cached budget reading is no longer valid for
-        // this account, so drop it and let both surfaces fall back to the
-        // "verify to see your write budget" state until re-verified.
+
         setWriteBudget(null);
         Toasts.show({ id: Toasts.genId(), type: Toasts.Type.SUCCESS, message: "Token revoked - re-verify to publish badge changes again" });
     } catch (e) {
@@ -1052,9 +1033,7 @@ function SessionTokenInput() {
     function handleBlur() {
         setFocused(false);
         if (!value) return;
-        // mount one frame with the letters still showing, then flip to
-        // masked so the letter->dot transition actually animates instead
-        // of snapping straight to dots.
+
         requestAnimationFrame(() => setMasked(true));
     }
 
@@ -1155,29 +1134,20 @@ function WriteBudgetPanel() {
     const [, tick] = useReducer(x => x + 1, 0);
 
     useEffect(() => {
-        // Kept in sync with setMyBadge/switchToBadge/deleteBadgeSlot (and
-        // any manual refresh) via the shared listener set.
+
         const unsubscribe = subscribeWriteBudget(setBudgetState);
-        // /self/writes is read-only and never consumes a write, so it's
-        // safe to pull one reading on mount to make sure a stale/absent
-        // cached value gets filled in.
+
         if (settings.store.sessionToken) refreshWriteBudget();
         return unsubscribe;
     }, []);
 
     useEffect(() => {
-        // The moment verification finishes elsewhere in Settings, pull one
-        // read-only reading so this panel doesn't sit on the "verify to see
-        // your budget" message until something else re-renders it.
+
         if (verified) refreshWriteBudget();
     }, [verified]);
 
     useEffect(() => {
-        // Tick the "resets in" text down locally once a second instead of
-        // polling the server, and pick up sessionToken changes made
-        // elsewhere in Settings. Once the window has actually rolled over,
-        // pull one fresh reading so restored writes show up without the
-        // user having to reopen Settings.
+
         const intervalId = setInterval(() => {
             const nowVerified = !!settings.store.sessionToken;
             if (nowVerified !== verified) {
@@ -1337,6 +1307,41 @@ function BadgePreview() {
                     Couldn't sample colors from this image, showing the flat fallback background instead. This can happen if the host blocks cross-origin image reads. What others see may look different from this preview.
                 </div>
             )}
+        </div>
+    );
+}
+
+function ApplyBadgeChangesButton({ forceUpdate }: { forceUpdate: () => void }) {
+    const [busy, setBusy] = useState(false);
+    const hasBadge = !!(settings.store.myBadgeImageUrl && settings.store.myBadgeName);
+    const pending = hasPendingBadgeChanges();
+
+    async function onClick() {
+        setBusy(true);
+        try {
+            applyBadgeChanges();
+        } finally {
+            setBusy(false);
+            forceUpdate();
+        }
+    }
+
+    return (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Button
+                onClick={onClick}
+                disabled={busy || !hasBadge || !pending}
+                color={pending ? Button.Colors.GREEN : Button.Colors.PRIMARY}
+            >
+                {busy ? "Applying..." : "Apply Badge Changes"}
+            </Button>
+            <Forms.FormText type="description" style={{ margin: 0 }}>
+                {!hasBadge
+                    ? "Set your badge image and name to enable this"
+                    : pending
+                        ? "You have unpublished changes"
+                        : "Everything below is already published"}
+            </Forms.FormText>
         </div>
     );
 }
@@ -1542,6 +1547,10 @@ function CustomBadgesTab() {
 
             {}
             <Forms.FormTitle tag="h3">Edit Active Badge</Forms.FormTitle>
+            <Forms.FormText type="description" style={{ marginBottom: 12 }}>
+                Changes to your badge's image, name, and style below are only saved locally as you make them -
+                nothing is published until you hit "Apply Badge Changes".
+            </Forms.FormText>
             <SettingField settingKey="apiBaseUrl" titleOverride="Api Base Url" forceUpdate={forceUpdate} />
             <SettingField settingKey="myBadgeImageUrl" titleOverride="My Badge Image Url" forceUpdate={forceUpdate} />
             <SettingField settingKey="myBadgeName" titleOverride="My Badge Name" forceUpdate={forceUpdate} />
@@ -1551,6 +1560,10 @@ function CustomBadgesTab() {
             {}
             <Forms.FormTitle tag="h3">Live Preview</Forms.FormTitle>
             <BadgePreview />
+
+            <div style={{ marginTop: 16, marginBottom: 4 }}>
+                <ApplyBadgeChangesButton forceUpdate={forceUpdate} />
+            </div>
 
             <Forms.FormDivider style={{ margin: "20px 0" }} />
 
@@ -1621,6 +1634,10 @@ function CustomBadgesTab() {
             <SettingField settingKey="badgeHoverEffect" titleOverride="Badge Hover Effect" forceUpdate={forceUpdate} />
             <SettingField settingKey="badgeGlowColor" titleOverride="Badge Glow Color" forceUpdate={forceUpdate} />
 
+            <div style={{ marginTop: 4, marginBottom: 4 }}>
+                <ApplyBadgeChangesButton forceUpdate={forceUpdate} />
+            </div>
+
             <Forms.FormDivider style={{ margin: "20px 0" }} />
 
             <SettingField settingKey="refreshCache" forceUpdate={forceUpdate} />
@@ -1628,13 +1645,13 @@ function CustomBadgesTab() {
     );
 }
 
-export function updateMyBadgeFromSettings() {
+export function updateMyBadgeFromSettings(): boolean {
     const { myBadgeImageUrl, myBadgeName } = settings.store;
-    if (!myBadgeImageUrl || !myBadgeName) return;
+    if (!myBadgeImageUrl || !myBadgeName) return false;
 
     if (isBlockedBadgeName(myBadgeName)) {
         showBadgeErrorToast(BLOCKED_BADGE_NAME_MESSAGE);
-        return;
+        return false;
     }
 
     if (lastPublishedSnapshot) pushBadgeHistory(lastPublishedSnapshot);
@@ -1653,6 +1670,27 @@ export function updateMyBadgeFromSettings() {
     setMyBadgesLocal(list);
 
     setMyBadge(id, myBadgeImageUrl, myBadgeName);
+    return true;
+}
+
+
+export function applyBadgeChanges(): boolean {
+    const { myBadgeImageUrl, myBadgeName } = settings.store;
+    if (!myBadgeImageUrl || !myBadgeName) {
+        showBadgeErrorToast("Set your badge image and name first");
+        return false;
+    }
+
+    if (!hasPendingBadgeChanges()) {
+        Toasts.show({ id: Toasts.genId(), type: Toasts.Type.MESSAGE, message: "No pending badge changes to apply" });
+        return false;
+    }
+
+    const ok = updateMyBadgeFromSettings();
+    if (ok) {
+        Toasts.show({ id: Toasts.genId(), type: Toasts.Type.SUCCESS, message: "Badge changes applied and published" });
+    }
+    return ok;
 }
 
 const cache = new Map<string, { imageUrl: string; description: string; style?: Partial<BadgeStyle> } | null>();
@@ -1736,6 +1774,8 @@ async function syncMyBadgesFromServer() {
         } finally {
             suppressPublishOnChange = false;
         }
+
+        lastPublishedSnapshot = getCurrentBadgeSnapshot();
     }
 }
 
@@ -1751,10 +1791,7 @@ export async function setMyBadge(badgeId: string, imageUrl: string, description:
     } catch (e) {
         console.error("[CustomBadges] Failed to set badge:", e);
         showBadgeErrorToast(describeBadgeApiError(e));
-        // A rejected write (e.g. budget exhausted) doesn't come back with a
-        // writeBudget payload, so pull a fresh read-only reading to make
-        // sure "X / 30" reflects reality (0/30, correct resetAt) rather
-        // than the stale pre-attempt number.
+
         refreshWriteBudget();
     }
 }
@@ -2924,6 +2961,8 @@ export default definePlugin({
         activeBadgeMode = settings.store.badgeMode || "original";
         startBadgeMode(activeBadgeMode);
 
+        lastPublishedSnapshot = getCurrentBadgeSnapshot();
+
         setDashboardBridge({
             settings,
             presetLabels: BUILTIN_PRESETS.map(p => p.label),
@@ -2942,6 +2981,10 @@ export default definePlugin({
             revokeSessionToken,
             switchToBadge,
             deleteBadgeSlot,
+
+            applyBadgeChanges,
+            hasPendingBadgeChanges,
+
             getWriteBudget,
             subscribeWriteBudget,
             refreshWriteBudget,
@@ -2993,6 +3036,7 @@ export default definePlugin({
         }
         buttonRegistry.unregister("user-dashboard");
         restoreDefaultView();
+
 
         unwireDashboardWriteBudget();
     },
