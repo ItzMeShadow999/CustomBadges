@@ -2,8 +2,9 @@ import { addProfileBadge, BadgeUserArgs, ProfileBadge, removeProfileBadge } from
 import { definePluginSettings } from "@api/Settings";
 import SettingsPlugin from "@plugins/_core/settings";
 import definePlugin, { OptionType } from "@utils/types";
-import { Button, Forms, GuildMemberStore, GuildStore, FluxDispatcher, Select, Switch, TextInput, Toasts, Tooltip, useEffect, useReducer, UserStore, useState } from "@webpack/common";
+import { Button, Forms, GuildMemberStore, GuildStore, FluxDispatcher, Select, Switch, TextInput, Tooltip, useEffect, useReducer, UserStore, useState } from "@webpack/common";
 import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import * as WebpackCommon from "@webpack/common";
 
 import { onRouteChanged } from "./dashboard/button";
 import { buttonRegistry } from "./dashboard/buttonRegistry";
@@ -11,6 +12,21 @@ import { renderDashboardView, restoreDefaultView } from "./dashboard/dashboardVi
 import { setDashboardActive, state as dashboardState } from "./dashboard/types";
 import { setDashboardBridge } from "./dashboard/bridge";
 import { unwireDashboardWriteBudget } from "./dashboard/wireSettings";
+
+type ToastKind = "MESSAGE" | "SUCCESS" | "FAILURE";
+
+const Toasts = {
+    Type: { MESSAGE: "MESSAGE", SUCCESS: "SUCCESS", FAILURE: "FAILURE" } as const,
+    genId: () => Math.random().toString(36).slice(2),
+    show(opts: { id?: string; type: ToastKind; message: string; }) {
+        const common = WebpackCommon as any;
+        if (typeof common.showToast === "function") {
+            const variant = opts.type === "SUCCESS" ? "success" : opts.type === "FAILURE" ? "critical" : "default";
+            return common.showToast({ text: opts.message, variant });
+        }
+        return common.Toasts?.show({ id: opts.id ?? common.Toasts.genId(), type: common.Toasts.Type[opts.type], message: opts.message });
+    }
+};
 
 const BADGE_CLASS = "custom-badge-injected";
 const STYLE_ID = "custom-badges-style";
@@ -251,7 +267,6 @@ let suppressPublishOnChange = false;
 
 const popupSettingsDisabled = () => settings.store.badgeMode === "vencord";
 
-
 export type WriteBudget = { remaining: number; limit: number; windowHours: number; resetAt: number; } | null;
 
 export const WRITE_BUDGET_MAX_WRITES = 30;
@@ -274,7 +289,6 @@ export function subscribeWriteBudget(fn: (budget: WriteBudget) => void) {
     return () => writeBudgetListeners.delete(fn);
 }
 
-
 async function apiGetWriteBudget(): Promise<WriteBudget> {
     const token = settings.store.sessionToken;
     if (!token) throw new Error("NOT_VERIFIED:Verify your Discord account first");
@@ -295,7 +309,6 @@ async function apiGetWriteBudget(): Promise<WriteBudget> {
     }
 }
 
-
 export async function refreshWriteBudget(): Promise<WriteBudget> {
     try {
         const budget = await apiGetWriteBudget();
@@ -306,7 +319,6 @@ export async function refreshWriteBudget(): Promise<WriteBudget> {
         return writeBudget;
     }
 }
-
 
 async function updateWriteBudgetAfterWrite(responseWriteBudget: WriteBudget | undefined) {
     if (responseWriteBudget) setWriteBudget(responseWriteBudget);
@@ -838,7 +850,6 @@ function getCurrentBadgeSnapshot(): BadgeSnapshot | null {
     };
 }
 
-
 export function hasPendingBadgeChanges(): boolean {
     const current = getCurrentBadgeSnapshot();
     if (!current) return false;
@@ -1074,9 +1085,7 @@ function SessionTokenInput() {
                     pointerEvents: "none",
                     overflow: "hidden",
                     whiteSpace: "pre",
-                    
-                    
-                    
+
                     fontFamily: "var(--font-code, Consolas, 'Courier New', monospace)",
                     fontSize: "14px",
                     lineHeight: 1,
@@ -1672,7 +1681,6 @@ export function updateMyBadgeFromSettings(): boolean {
     setMyBadge(id, myBadgeImageUrl, myBadgeName);
     return true;
 }
-
 
 export function applyBadgeChanges(): boolean {
     const { myBadgeImageUrl, myBadgeName } = settings.store;
@@ -3033,7 +3041,6 @@ export default definePlugin({
         }
         buttonRegistry.unregister("user-dashboard");
         restoreDefaultView();
-
 
         unwireDashboardWriteBudget();
     },
