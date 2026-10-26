@@ -2950,7 +2950,7 @@ export function onBadgeModeChange(newMode: string) {
 export default definePlugin({
     name: "CustomBadges",
     description: "Adds a custom badge with hover tooltip and click-to-view popup card, visible to anyone else running this plugin.",
-    authors: [{ name: "ItzMeShadow999", id: 1065604516399026176 }],
+    authors: [{ name: "ItzMeShadow999", id: 1065604516399026176n }],
     settings,
 
     setMyBadge,
