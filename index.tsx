@@ -1,4 +1,4 @@
-import { addProfileBadge, BadgeUserArgs, ProfileBadge, removeProfileBadge } from "@api/Badges";
+import { addProfileBadge, BadgeRarity, BadgeUserArgs, ProfileBadge, removeProfileBadge } from "@api/Badges";
 import { definePluginSettings } from "@api/Settings";
 import SettingsPlugin from "@plugins/_core/settings";
 import definePlugin, { OptionType } from "@utils/types";
@@ -2507,12 +2507,50 @@ function CustomBadgeComponent({ userId }: BadgeUserArgs) {
     );
 }
 
+function badgeFingerprint(input: string): string {
+    let h = 5381;
+    for (let i = 0; i < input.length; i++) h = ((h << 5) + h + input.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36);
+}
+
+function getCustomProfileBadges({ userId }: BadgeUserArgs): ProfileBadge[] {
+    if (!cache.has(userId)) {
+        return [{ id: "custom-badge", key: "custom-badge", description: "Custom Badge", component: CustomBadgeComponent }];
+    }
+
+    const data = cache.get(userId);
+    if (!data?.imageUrl) return [];
+
+    const isMe = userId === UserStore.getCurrentUser()?.id;
+    if (settings.store.hideOwnBadge && isMe) return [];
+    if (!shouldShowBadgeFor(userId)) return [];
+
+    const style = resolveBadgeStyle(data.style, isMe ? settings.store.firstUsedDate : null);
+    const displayName = formatBadgeName((data.description ?? "").trim(), style.appendVencordTag);
+    const obtainedAt = style.firstUsedDate && !isNaN(new Date(style.firstUsedDate).getTime()) ? style.firstUsedDate : undefined;
+
+    return [{
+        id: `custom-badge-${badgeFingerprint(`${data.imageUrl}|${displayName}`)}`,
+        key: "custom-badge",
+        description: displayName,
+        component: CustomBadgeComponent,
+        iconSrc: data.imageUrl,
+        largeIconSrc: data.imageUrl,
+        name: displayName,
+        detail: "CustomBadges User",
+        infoLabel: "Custom Badges",
+        rarity: BadgeRarity.MYTHIC,
+        obtainedAt
+    }];
+}
+
 const customProfileBadge: ProfileBadge = {
     id: "custom-badge",
     key: "custom-badge",
     description: "Custom Badge",
 
     shouldShow: () => true,
+    getBadges: getCustomProfileBadges,
     component: CustomBadgeComponent,
 };
 
