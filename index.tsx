@@ -2,7 +2,12 @@ import { addProfileBadge, BadgeRarity, BadgeUserArgs, ProfileBadge, removeProfil
 import { definePluginSettings } from "@api/Settings";
 import SettingsPlugin from "@plugins/_core/settings";
 import definePlugin, { OptionType } from "@utils/types";
-import { Button, Forms, GuildMemberStore, GuildStore, FluxDispatcher, Select, Switch, TextInput, Tooltip, useEffect, useReducer, UserStore, useState } from "@webpack/common";
+import { Button, TextButton } from "@components/Button";
+import { Divider } from "@components/Divider";
+import { Heading } from "@components/Heading";
+import { Paragraph } from "@components/Paragraph";
+import { Switch } from "@components/Switch";
+import { GuildMemberStore, GuildStore, FluxDispatcher, Select, TextInput, Tooltip, useEffect, useReducer, UserStore, useState } from "@webpack/common";
 import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import * as WebpackCommon from "@webpack/common";
 
@@ -12,6 +17,13 @@ import { renderDashboardView, restoreDefaultView } from "./dashboard/dashboardVi
 import { setDashboardActive, state as dashboardState } from "./dashboard/types";
 import { setDashboardBridge } from "./dashboard/bridge";
 import { unwireDashboardWriteBudget } from "./dashboard/wireSettings";
+
+const Forms = {
+    FormSection: ({ children }: { children?: ReactNode; }) => <section>{children}</section>,
+    FormTitle: (props: any) => <Heading {...props} />,
+    FormText: ({ type: _type, ...props }: any) => <Paragraph {...props} />,
+    FormDivider: Divider
+};
 
 type ToastKind = "MESSAGE" | "SUCCESS" | "FAILURE";
 
@@ -1118,8 +1130,8 @@ function RevokeTokenButton() {
     }
     return (
         <Button
-            size={Button.Sizes.SMALL}
-            color={Button.Colors.RED}
+            size="small"
+            variant="dangerPrimary"
             disabled={busy || !settings.store.sessionToken}
             onClick={doRevoke}
         >
@@ -1178,7 +1190,7 @@ function WriteBudgetPanel() {
     };
 
     const refreshBtn = (
-        <Button size={Button.Sizes.SMALL} disabled={loading || !verified} onClick={onRefresh}>
+        <Button size="small" disabled={loading || !verified} onClick={onRefresh}>
             {loading ? "Refreshing..." : "Refresh"}
         </Button>
     );
@@ -1340,7 +1352,7 @@ function ApplyBadgeChangesButton({ forceUpdate }: { forceUpdate: () => void }) {
             <Button
                 onClick={onClick}
                 disabled={busy || !hasBadge || !pending}
-                color={pending ? Button.Colors.GREEN : Button.Colors.PRIMARY}
+                variant={pending ? "positive" : "secondary"}
             >
                 {busy ? "Applying..." : "Apply Badge Changes"}
             </Button>
@@ -1471,7 +1483,7 @@ function SwitchField({ settingKey, titleOverride, forceUpdate }: { settingKey: s
                 {def.description && <Forms.FormText type="description">{def.description}</Forms.FormText>}
             </div>
             <Switch
-                value={!!(settings.store as any)[settingKey]}
+                checked={!!(settings.store as any)[settingKey]}
                 disabled={isDisabled}
                 onChange={(v: boolean) => {
                     if (isDisabled) return;
@@ -1580,8 +1592,8 @@ function CustomBadgesTab() {
             <Forms.FormTitle tag="h3">Quick Actions</Forms.FormTitle>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
                 <Button onClick={shareMyBadge} disabled={!hasBadge}>Share Badge</Button>
-                <Button onClick={revertBadge} color={Button.Colors.PRIMARY}>Revert To Previous Badge</Button>
-                <Button onClick={refreshBadgeCache} color={Button.Colors.PRIMARY}>Refresh Badge Cache</Button>
+                <Button onClick={revertBadge} variant="secondary">Revert To Previous Badge</Button>
+                <Button onClick={refreshBadgeCache} variant="secondary">Refresh Badge Cache</Button>
             </div>
 
             <SettingField settingKey="importBadgeCode" titleOverride="Import Badge Code" forceUpdate={forceUpdate} />
@@ -1944,11 +1956,11 @@ function MyBadgesList() {
                         {b.description}{b.id === activeId ? " (active)" : ""}
                     </span>
                     {b.id !== activeId && (
-                        <Button size={Button.Sizes.SMALL} onClick={() => { switchToBadge(b.id).then(() => bump()); }}>Use</Button>
+                        <Button size="small" onClick={() => { switchToBadge(b.id).then(() => bump()); }}>Use</Button>
                     )}
                     <Button
-                        size={Button.Sizes.SMALL}
-                        color={Button.Colors.RED}
+                        size="small"
+                        variant="dangerPrimary"
                         onClick={() => { deleteBadgeSlot(b.id).then(() => bump()); }}
                     >
                         Delete
@@ -2191,10 +2203,10 @@ function MakePackButton() {
     }
     return (<>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <Button onClick={handleClick} color={Button.Colors.PRIMARY}>Make Pack (Copy JSON)</Button>
-                <Button onClick={() => setShowGuidelines(true)} look={Button.Looks.LINK} size={Button.Sizes.SMALL}>
+                <Button onClick={handleClick} variant="secondary">Make Pack (Copy JSON)</Button>
+                <TextButton variant="link" onClick={() => setShowGuidelines(true)}>
                     View Publish Guide
-                </Button>
+                </TextButton>
             </div>
             {showGuidelines && <PackGuidelinesModal onClose={() => setShowGuidelines(false)}/>}
         </>);
@@ -2213,11 +2225,11 @@ function BadgePacksButtonsRow({ forceUpdate }: {
     return (<>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
                 <Button onClick={() => { importPackFromUrl().then(() => forceUpdate()); }}>Import Pack</Button>
-                <Button onClick={handleMakePackClick} color={Button.Colors.PRIMARY}>Make Pack (Copy JSON)</Button>
-                <Button onClick={browsePacks} color={Button.Colors.PRIMARY}>Add More Packs</Button>
-                <Button onClick={() => setShowGuidelines(true)} look={Button.Looks.LINK} size={Button.Sizes.SMALL}>
+                <Button onClick={handleMakePackClick} variant="secondary">Make Pack (Copy JSON)</Button>
+                <Button onClick={browsePacks} variant="secondary">Add More Packs</Button>
+                <TextButton variant="link" onClick={() => setShowGuidelines(true)}>
                     View Publish Guide
-                </Button>
+                </TextButton>
             </div>
             {showGuidelines && <PackGuidelinesModal onClose={() => setShowGuidelines(false)}/>}
         </>);
